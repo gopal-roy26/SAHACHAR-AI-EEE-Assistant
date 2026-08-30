@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium RC Circuit Lab - SAHACHAR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #06080e; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0d121c; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            max-width: 900px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #06b6d4; font-weight: 800;}
+        
+        .svg-wrapper {
+            background: #0a0d14; border-radius: 12px; border: 1px solid #1e293b; 
+            padding: 20px; margin-bottom: 20px;
+            background-image: radial-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex; justify-content: center;
+            overflow: hidden;
+        }
+        svg { width: 100%; max-width: 800px; height: auto; }
+        
+        .charge { 
+            stroke-dasharray: 12 36; 
+            /* JS will handle the dashoffset animation dynamically now */
+        }
+        
+        .controls { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 15px; text-align: left; background: #0a0d14; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;}
+        .control-group { display: flex; flex-direction: column; gap: 8px; justify-content: center;}
+        .control-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;}
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        /* Switch Segmented Buttons */
+        .btn-group { display: flex; gap: 8px; }
+        .mode-btn {
+            flex: 1; padding: 10px 5px; font-size: 13px; font-weight: bold; border-radius: 8px;
+            border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .mode-btn.active-charge { background: #0284c7; color: #fff; border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+        .mode-btn.active-open { background: #475569; color: #fff; border-color: #94a3b8; }
+        .mode-btn.active-discharge { background: #e11d48; color: #fff; border-color: #fb7185; box-shadow: 0 0 10px rgba(251, 113, 133, 0.4); }
+
+        .math-box { margin-top: 15px; padding: 15px; background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 8px; font-family: monospace; font-size: 15px; color: #a5f3fc; line-height: 1.6;}
+        .feedback-box { margin-top: 15px; padding: 12px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; font-size: 14px; font-weight: 600; color: #7dd3fc; text-align: center; transition: all 0.3s ease;}
+        
+        @media (max-width: 600px) { .controls { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚡ RC Circuit (ক্যাপাসিটর চার্জিং ও ডিসচার্জিং)</h2>
+    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">সুইচ দিয়ে Charge বা Discharge মোড সিলেক্ট করে লাইভ ইলেকট্রন ফ্লো এবং টাইম কনস্ট্যান্ট (τ) পর্যবেক্ষণ করুন</p>
+
+    <div class="svg-wrapper">
+        <svg viewBox="0 0 850 500">
+            <defs>
+                <filter id="glow-cyan"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="glow-red"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+
+            <!-- ================= STATIC WIRES ================= -->
+            <polyline points="150,260 150,150 220,150" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="220,90 100,90 100,380 300,380" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="290,150 370,150" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="460,150 580,150" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="620,150 720,150 720,380 150,380 150,280" fill="none" stroke="#334155" stroke-width="4"/>
+
+            <!-- ================= 3-WAY SWITCH (SPDT) ================= -->
+            <!-- Pin 1: Charge (লেবেল সরানো হয়েছে) -->
+            <circle cx="220" cy="150" r="5" fill="#38bdf8" />
+            <text x="205" y="145" fill="#38bdf8" font-size="13" font-weight="bold" text-anchor="end">1 (Charge)</text>
+            
+            <!-- Pin 3: Discharge (লেবেল ওপরে ও বামে সরানো হয়েছে) -->
+            <circle cx="220" cy="90" r="5" fill="#f43f5e" />
+            <text x="210" y="75" fill="#f43f5e" font-size="13" font-weight="bold" text-anchor="end">3 (Discharge)</text>
+            
+            <!-- Switch Pole / Common Pin 2 -->
+            <circle cx="290" cy="150" r="6" fill="#f1f5f9" />
+            
+            <!-- Switch Blade -->
+            <line id="svg-switch-blade" x1="290" y1="150" x2="250" y2="120" stroke="#f1f5f9" stroke-width="4" stroke-linecap="round" style="transition: all 0.3s ease;"/>
+            <text x="270" y="110" fill="#94a3b8" font-size="13" font-weight="bold" text-anchor="middle" id="svg-switch-status">OPEN</text>
+
+            <!-- ================= COMPONENTS ================= -->
+            <!-- DC Source (Battery) -->
+            <line x1="120" y1="260" x2="180" y2="260" stroke="#ef4444" stroke-width="6"/> 
+            <line x1="135" y1="280" x2="165" y2="280" stroke="#3b82f6" stroke-width="10"/> 
+            <text x="105" y="265" fill="#ef4444" font-size="20" font-weight="bold">+</text>
+            <text x="110" y="285" fill="#3b82f6" font-size="24" font-weight="bold">-</text>
+            <text x="85" y="275" fill="#ef4444" font-size="16" font-weight="bold" text-anchor="end" id="svg-v-val">12V</text>
+
+            <!-- Resistor (R) -->
+            <polyline points="370,150 378,130 393,170 408,130 423,170 438,130 452,150 460,150" fill="none" stroke="#f59e0b" stroke-width="4"/>
+            <text x="415" y="110" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="middle" id="svg-r-val">R = 10kΩ</text>
+            <text x="415" y="195" fill="#f59e0b" font-size="14" font-weight="bold" text-anchor="middle" id="svg-vr-val">VR = 0.00V</text>
+
+            <!-- Capacitor (C) Plates -->
+            <line x1="580" y1="110" x2="580" y2="190" stroke="#38bdf8" stroke-width="6"/>
+            <line x1="620" y1="110" x2="620" y2="190" stroke="#38bdf8" stroke-width="6"/>
+            
+            <text x="600" y="90" fill="#38bdf8" font-size="16" font-weight="bold" text-anchor="middle" id="svg-c-val">C = 100μF</text>
+            <text x="600" y="215" fill="#38bdf8" font-size="16" font-weight="bold" text-anchor="middle" id="svg-vc-val">VC = 0.00V</text>
+
+            <!-- Dynamic Charges inside Capacitor Plates -->
+            <g id="charge-plus-group" fill="#ef4444" font-size="14" font-weight="bold" text-anchor="middle" opacity="0">
+                <text x="565" y="125">+</text><text x="565" y="145">+</text><text x="565" y="165">+</text><text x="565" y="185">+</text>
+            </g>
+            <g id="charge-minus-group" fill="#3b82f6" font-size="16" font-weight="bold" text-anchor="middle" opacity="0">
+                <text x="635" y="125">-</text><text x="635" y="145">-</text><text x="635" y="165">-</text><text x="635" y="185">-</text>
+            </g>
+
+            <!-- ================= CURRENT ARROW ================= -->
+            <g id="current-arrow-group" style="display: none;">
+                <polyline id="svg-i-arrow" points="505,140 515,150 505,160" fill="none" stroke="#06b6d4" stroke-width="3"/>
+                <text x="510" y="130" fill="#06b6d4" font-size="15" font-weight="bold" text-anchor="middle" id="svg-i-val">I = 0.00mA</text>
+            </g>
+
+            <!-- ================= ANIMATED CHARGE FLOW ================= -->
+            <path id="anim-charge-loop" class="charge" d="M 150 260 L 150 150 L 220 150 L 290 150 L 580 150 M 620 150 L 720 150 L 720 380 L 150 380 L 150 280" fill="none" stroke="#06b6d4" stroke-width="6" stroke-linecap="round" filter="url(#glow-cyan)" style="display: none;"/>
+            
+            <path id="anim-discharge-loop" class="charge" d="M 580 150 L 290 150 L 220 90 L 100 90 L 100 380 L 720 380 L 720 150 L 620 150" fill="none" stroke="#f43f5e" stroke-width="6" stroke-linecap="round" filter="url(#glow-red)" style="display: none;"/>
+        </svg>
+    </div>
+
+    <div class="feedback-box" id="feedback-output">
+        💡 মোড সিলেক্ট করুন: ক্যাপাসিটর চার্জ করার জন্য <strong>CHARGE</strong> বাটনে ক্লিক করুন।
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-header"><span>🕹️ Switch State</span></div>
+            <div class="btn-group">
+                <button class="mode-btn active-charge" onclick="setMode('charge')">CHARGE</button>
+                <button class="mode-btn" onclick="setMode('open')">OPEN</button>
+                <button class="mode-btn" onclick="setMode('discharge')">DISCHARGE</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#ef4444">⚡ V_Source</span> <span id="v-val" style="color:#f1f5f9">12V</span></div>
+            <input type="range" id="v-slider" min="5" max="30" value="12" style="accent-color: #ef4444;">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#f59e0b">🚧 Resistance (R)</span> <span id="r-val" style="color:#f1f5f9">10kΩ</span></div>
+            <input type="range" id="r-slider" min="1" max="50" value="10" style="accent-color: #f59e0b;">
+        </div>
+    </div>
+
+    <div class="math-box" id="math-output">
+        <!-- Math injects here -->
+    </div>
+</div>
+
+<script>
+    // Elements
+    const vSlider = document.getElementById('v-slider');
+    const rSlider = document.getElementById('r-slider');
+    
+    const vVal = document.getElementById('v-val');
+    const rVal = document.getElementById('r-val');
+    
+    const svgV = document.getElementById('svg-v-val');
+    const svgR = document.getElementById('svg-r-val');
+    const svgVR = document.getElementById('svg-vr-val');
+    const svgVC = document.getElementById('svg-vc-val');
+    const svgIVal = document.getElementById('svg-i-val');
+    const svgIArrow = document.getElementById('svg-i-arrow');
+    const curArrowGroup = document.getElementById('current-arrow-group');
+    
+    const svgSwitchBlade = document.getElementById('svg-switch-blade');
+    const svgSwitchStatus = document.getElementById('svg-switch-status');
+    const plusCharges = document.getElementById('charge-plus-group');
+    const minusCharges = document.getElementById('charge-minus-group');
+    
+    const animChargeLoop = document.getElementById('anim-charge-loop');
+    const animDischargeLoop = document.getElementById('anim-discharge-loop');
+    
+    const mathOut = document.getElementById('math-output');
+    const feedbackOut = document.getElementById('feedback-output');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
+    // Simulation Physics State
+    let mode = 'open'; 
+    let V_cap = 0.0;    
+    let lastTime = performance.now();
+    const C_val = 100e-6; 
+    let dashOffset = 48; // For continuous JS animation
+
+    function setMode(newMode) {
+        mode = newMode;
+        modeBtns.forEach(btn => btn.className = 'mode-btn');
+        if (mode === 'charge') {
+            modeBtns[0].classList.add('active-charge');
+            svgSwitchBlade.setAttribute('x2', '220');
+            svgSwitchBlade.setAttribute('y2', '150');
+            svgSwitchStatus.textContent = "CHARGING";
+            svgSwitchStatus.setAttribute('fill', '#38bdf8');
+            animDischargeLoop.style.display = 'none';
+        } else if (mode === 'open') {
+            modeBtns[1].classList.add('active-open');
+            svgSwitchBlade.setAttribute('x2', '250');
+            svgSwitchBlade.setAttribute('y2', '120');
+            svgSwitchStatus.textContent = "OPEN";
+            svgSwitchStatus.setAttribute('fill', '#94a3b8');
+            animChargeLoop.style.display = 'none';
+            animDischargeLoop.style.display = 'none';
+            curArrowGroup.style.display = 'none';
+        } else if (mode === 'discharge') {
+            modeBtns[2].classList.add('active-discharge');
+            svgSwitchBlade.setAttribute('x2', '220');
+            svgSwitchBlade.setAttribute('y2', '90');
+            svgSwitchStatus.textContent = "DISCHARGING";
+            svgSwitchStatus.setAttribute('fill', '#f43f5e');
+            animChargeLoop.style.display = 'none';
+        }
+    }
+
+    // Main Simulation Loop (Real-time differential solver + Custom JS Animation)
+    function simLoop(currentTime) {
+        const dt = (currentTime - lastTime) / 1000; 
+        lastTime = currentTime;
+
+        const V_source = parseFloat(vSlider.value);
+        const R_kilo = parseFloat(rSlider.value);
+        const R = R_kilo * 1000; 
+        const tau = R * C_val;   
+
+        let current_mA = 0;
+        let V_resistor = 0;
+
+        if (mode === 'charge') {
+            V_cap += (V_source - V_cap) * (1 - Math.exp(-dt / tau));
+            if (V_cap > V_source - 0.005) V_cap = V_source; 
+            
+            V_resistor = V_source - V_cap;
+            current_mA = (V_resistor / R) * 1000;
+
+            curArrowGroup.style.display = current_mA > 0.01 ? 'block' : 'none';
+            svgIArrow.setAttribute('points', '505,140 515,150 505,160'); 
+            svgIVal.setAttribute('fill', '#06b6d4');
+            svgIArrow.setAttribute('stroke', '#06b6d4');
+            
+            if (current_mA > 0.01) {
+                animChargeLoop.style.display = 'block';
+                // JS Driven Animation (Fixes the CSS reset issue)
+                let flowSpeed = 20 + (current_mA * 30); 
+                dashOffset -= flowSpeed * dt;
+                if (dashOffset <= 0) dashOffset += 48;
+                animChargeLoop.style.strokeDashoffset = dashOffset;
+                
+                feedbackOut.innerHTML = `⚡ <strong>ক্যাপাসিটর চার্জ হচ্ছে:</strong> চার্জ জমার সাথে সাথে কারেন্ট কমে যাচ্ছে (I = ${current_mA.toFixed(2)}mA)।`;
+            } else {
+                animChargeLoop.style.display = 'none';
+                feedbackOut.innerHTML = `🔋 <strong>ফুল চার্জড!</strong> ক্যাপাসিটর ওপেন সার্কিটের মতো আচরণ করছে, সার্কিট কারেন্ট এখন <strong>0.00mA</strong>।`;
+            }
+
+        } else if (mode === 'discharge') {
+            V_cap -= V_cap * (1 - Math.exp(-dt / tau));
+            if (V_cap < 0.005) V_cap = 0; 
+
+            V_resistor = V_cap;
+            current_mA = (V_resistor / R) * 1000;
+
+            curArrowGroup.style.display = current_mA > 0.01 ? 'block' : 'none';
+            svgIArrow.setAttribute('points', '515,140 505,150 515,160'); 
+            svgIVal.setAttribute('fill', '#f43f5e');
+            svgIArrow.setAttribute('stroke', '#f43f5e');
+
+            if (current_mA > 0.01) {
+                animDischargeLoop.style.display = 'block';
+                // JS Driven Animation
+                let flowSpeed = 20 + (current_mA * 30);
+                dashOffset -= flowSpeed * dt;
+                if (dashOffset <= 0) dashOffset += 48;
+                animDischargeLoop.style.strokeDashoffset = dashOffset;
+                
+                feedbackOut.innerHTML = `💥 <strong>ক্যাপাসিটর ডিসচার্জ হচ্ছে:</strong> ক্যাপাসিটর এখন সোর্স হিসেবে উল্টো দিকে কারেন্ট ফ্লো করছে।`;
+            } else {
+                animDischargeLoop.style.display = 'none';
+                feedbackOut.innerHTML = `✅ <strong>সম্পূর্ণ ডিসচার্জড!</strong> ক্যাপাসিটরের সমস্ত সঞ্চিত এনার্জি রেজিস্টরে খরচ হয়ে গেছে।`;
+            }
+
+        } else {
+            V_resistor = 0;
+            current_mA = 0;
+            feedbackOut.innerHTML = `⏸️ সার্কিট ওপেন। ক্যাপাসিটরে চার্জ সঞ্চিত অবস্থায় হোল্ড হয়ে আছে (VC = ${V_cap.toFixed(2)}V)।`;
+        }
+
+        // Visual charge density in capacitor plates
+        const chargeRatio = V_source > 0 ? (V_cap / V_source) : 0;
+        plusCharges.setAttribute('opacity', chargeRatio);
+        minusCharges.setAttribute('opacity', chargeRatio);
+
+        // Update Text
+        vVal.textContent = V_source + "V";
+        rVal.textContent = R_kilo + "kΩ";
+        svgV.textContent = V_source + "V";
+        svgR.textContent = "R = " + R_kilo + "kΩ";
+        svgVR.textContent = "VR = " + V_resistor.toFixed(2) + "V";
+        svgVC.textContent = "VC = " + V_cap.toFixed(2) + "V";
+        svgIVal.textContent = "I = " + current_mA.toFixed(2) + "mA";
+
+        // Update Math Box
+        mathOut.innerHTML = `
+            <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                <span>Time Constant (τ = R × C): <strong style="color:#38bdf8">${tau.toFixed(2)}s</strong></span>
+                <span>Current (I): <strong style="color:#06b6d4">${current_mA.toFixed(2)}mA</strong></span>
+            </div>
+            <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px; background:#082f49; padding:8px; border-radius:6px;">
+                <span style="color:#f59e0b">V<sub>R</sub> = ${V_resistor.toFixed(2)}V</span>
+                <span style="color:#38bdf8">V<sub>C</sub> = ${V_cap.toFixed(2)}V</span>
+                <span style="color:#f1f5f9">V<sub>R</sub> + V<sub>C</sub> = ${(mode === 'charge' ? V_resistor + V_cap : Math.max(V_resistor, V_cap)).toFixed(2)}V</span>
+            </div>
+        `;
+
+        requestAnimationFrame(simLoop);
+    }
+
+    // Initial load state
+    setMode('charge');
+    requestAnimationFrame(simLoop);
+</script>
+</body>
+</html>

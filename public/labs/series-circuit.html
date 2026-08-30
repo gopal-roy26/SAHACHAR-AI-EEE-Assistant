@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Series Circuit Lab - SAHACHAR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #06080e; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0d121c; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            max-width: 850px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #f43f5e; font-weight: 800;}
+        
+        .svg-wrapper {
+            background: #0a0d14; border-radius: 12px; border: 1px solid #1e293b; 
+            padding: 20px; margin-bottom: 20px;
+            background-image: radial-gradient(rgba(244, 63, 94, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex; justify-content: center;
+        }
+        svg { width: 100%; max-width: 700px; height: auto; }
+        
+        .charge { 
+            stroke-dasharray: 12 36; 
+        }
+        @keyframes flow { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: left; background: #0a0d14; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;}
+        .control-group { display: flex; flex-direction: column; gap: 8px; justify-content: center;}
+        .control-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;}
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        /* Switch Toggle Styles */
+        .switch-container { display: flex; align-items: center; justify-content: space-between; background: rgba(244, 63, 94, 0.1); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(244, 63, 94, 0.3);}
+        .switch-label { font-size: 14px; font-weight: bold; color: #f43f5e; }
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #f43f5e; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        .math-box { margin-top: 15px; padding: 15px; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; font-family: monospace; font-size: 15px; color: #fda4af;}
+        
+        .feedback-box { margin-top: 15px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 14px; font-weight: 600; color: #6ee7b7; text-align: center; transition: all 0.3s ease;}
+        
+        @media (max-width: 600px) { .controls { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔗 Series Circuit (সিরিজ সার্কিট) Analysis</h2>
+    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">সুইচ অন/অফ করুন এবং সিরিজ সার্কিটে ভোল্টেজ ডিভাইডার রুল (VDR) পর্যবেক্ষণ করুন</p>
+
+    <div class="svg-wrapper">
+        <svg viewBox="0 0 750 500">
+            <defs>
+                <filter id="glow-rose"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+
+            <!-- ================= STATIC WIRES ================= -->
+            <!-- Left Wire to Switch -->
+            <polyline points="150,240 150,150 200,150" fill="none" stroke="#334155" stroke-width="4"/>
+            <!-- Switch to R1 -->
+            <polyline points="250,150 320,150" fill="none" stroke="#334155" stroke-width="4"/>
+            <!-- R1 to R2 -->
+            <polyline points="410,150 500,150 500,210" fill="none" stroke="#334155" stroke-width="4"/>
+            <!-- R2 back to Source -->
+            <polyline points="500,290 500,350 150,350 150,260" fill="none" stroke="#334155" stroke-width="4"/>
+
+            <!-- ================= CIRCUIT SWITCH ================= -->
+            <circle cx="200" cy="150" r="4" fill="#f43f5e" />
+            <circle cx="250" cy="150" r="4" fill="#f43f5e" />
+            <!-- Animated Switch Blade -->
+            <line id="svg-switch-blade" x1="200" y1="150" x2="245" y2="120" stroke="#f43f5e" stroke-width="4" stroke-linecap="round" style="transition: all 0.3s ease; transform-origin: 200px 150px;"/>
+            <text x="225" y="110" fill="#f43f5e" font-size="14" font-weight="bold" text-anchor="middle" id="svg-switch-label">SW: OFF</text>
+
+            <!-- ================= COMPONENTS ================= -->
+            <!-- Battery (Source) -->
+            <line x1="120" y1="240" x2="180" y2="240" stroke="#ef4444" stroke-width="6"/> 
+            <line x1="135" y1="260" x2="165" y2="260" stroke="#3b82f6" stroke-width="10"/> 
+            <text x="105" y="245" fill="#ef4444" font-size="20" font-weight="bold">+</text>
+            <text x="110" y="265" fill="#3b82f6" font-size="24" font-weight="bold">-</text>
+            <text x="80" y="255" fill="#ef4444" font-size="16" font-weight="bold" text-anchor="end" id="svg-v-val">12V</text>
+
+            <!-- Resistor 1 (Top) -->
+            <polyline points="320,150 328,130 343,170 358,130 373,170 388,130 402,150 410,150" fill="none" stroke="#f59e0b" stroke-width="4"/>
+            <text x="365" y="195" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="middle" id="svg-r1-val">R1 = 10Ω</text>
+            
+            <!-- V1 Drop Indicator -->
+            <path d="M 310 115 Q 365 75 420 115" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 4"/>
+            <text x="365" y="70" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="middle" id="svg-v1-val">V1 = 0.00V</text>
+
+            <!-- Resistor 2 (Right) -->
+            <polyline points="500,210 520,218 480,234 520,250 480,266 520,282 500,290" fill="none" stroke="#10b981" stroke-width="4"/>
+            <text x="450" y="255" fill="#10b981" font-size="16" font-weight="bold" text-anchor="end" id="svg-r2-val">R2 = 20Ω</text>
+
+            <!-- V2 Drop Indicator -->
+            <path d="M 530 195 Q 575 250 530 305" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4 4"/>
+            <text x="585" y="255" fill="#10b981" font-size="16" font-weight="bold" text-anchor="start" id="svg-v2-val">V2 = 0.00V</text>
+
+            <!-- ================= CURRENT ARROWS ================= -->
+            <!-- Same Current Everywhere Indicator -->
+            <polyline points="280,140 290,150 280,160" fill="none" stroke="#f43f5e" stroke-width="3"/>
+            <text x="285" y="130" fill="#f43f5e" font-size="14" font-weight="bold" text-anchor="middle" id="svg-i1-label">I = 0.00A</text>
+
+            <polyline points="490,320 500,330 510,320" fill="none" stroke="#f43f5e" stroke-width="3"/>
+            <!-- Fixed the bottom I label: moved to x=520, y=330 to keep it clear off the wire corner -->
+            <text x="520" y="330" fill="#f43f5e" font-size="14" font-weight="bold" text-anchor="start" id="svg-i2-label">I = 0.00A</text>
+
+            <!-- ================= ANIMATED CHARGE FLOW ================= -->
+            <path id="anim-charge" class="charge" d="M 150 240 L 150 150 L 500 150 L 500 350 L 150 350 L 150 260" fill="none" stroke="#f43f5e" stroke-width="6" stroke-linecap="round" filter="url(#glow-rose)" style="display: none;"/>
+            
+        </svg>
+    </div>
+
+    <div class="feedback-box" id="feedback-output">
+        💡 সার্কিটটি এখন অফ আছে। মেইন সুইচটি অন করুন!
+    </div>
+
+    <div class="controls">
+        <div class="switch-container">
+            <span class="switch-label">🔌 Main Switch</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="main-switch">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#ef4444">⚡ V_Source (V)</span> <span id="v-val" style="color:#f1f5f9">12V</span></div>
+            <input type="range" id="v-slider" min="1" max="36" value="12" style="accent-color: #ef4444;">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#f59e0b">🚧 Load 1 (R1)</span> <span id="r1-val" style="color:#f1f5f9">10Ω</span></div>
+            <input type="range" id="r1-slider" min="1" max="50" value="10" style="accent-color: #f59e0b;">
+        </div>
+        <div class="control-group" style="grid-column: span 3;">
+            <div class="control-header"><span style="color:#10b981">🚧 Load 2 (R2)</span> <span id="r2-val" style="color:#f1f5f9">20Ω</span></div>
+            <input type="range" id="r2-slider" min="1" max="50" value="20" style="accent-color: #10b981;">
+        </div>
+    </div>
+
+    <div class="math-box" id="math-output">
+        <!-- Math injects here -->
+    </div>
+</div>
+
+<script>
+    const switchInput = document.getElementById('main-switch');
+    const vSlider = document.getElementById('v-slider');
+    const r1Slider = document.getElementById('r1-slider');
+    const r2Slider = document.getElementById('r2-slider');
+    
+    // UI Elements
+    const vVal = document.getElementById('v-val');
+    const r1Val = document.getElementById('r1-val');
+    const r2Val = document.getElementById('r2-val');
+    
+    // SVG Elements 
+    const svgSwitchBlade = document.getElementById('svg-switch-blade');
+    const svgSwitchLabel = document.getElementById('svg-switch-label');
+    const svgV = document.getElementById('svg-v-val');
+    const svgR1 = document.getElementById('svg-r1-val');
+    const svgR2 = document.getElementById('svg-r2-val');
+    const svgV1 = document.getElementById('svg-v1-val');
+    const svgV2 = document.getElementById('svg-v2-val');
+    const svgI1Label = document.getElementById('svg-i1-label');
+    const svgI2Label = document.getElementById('svg-i2-label');
+    
+    const mathOut = document.getElementById('math-output');
+    const feedbackOut = document.getElementById('feedback-output');
+    const animCharge = document.getElementById('anim-charge');
+
+    let prevV = 12, prevR1 = 10, prevR2 = 20;
+
+    function updateSim() {
+        const isClosed = switchInput.checked;
+        const V = parseFloat(vSlider.value);
+        const R1 = parseFloat(r1Slider.value);
+        const R2 = parseFloat(r2Slider.value);
+
+        // Series Circuit Equivalent Resistance
+        const R_eq = R1 + R2;
+        let I = 0;
+        let V1 = 0;
+        let V2 = 0;
+
+        // Visual Switch State
+        if (isClosed) {
+            svgSwitchBlade.setAttribute('x2', '250');
+            svgSwitchBlade.setAttribute('y2', '150');
+            svgSwitchLabel.textContent = "SW: ON";
+            svgSwitchLabel.setAttribute('fill', '#10b981'); // Green when ON
+            animCharge.style.display = "block";
+            
+            // Calculate active values
+            I = V / R_eq;
+            V1 = I * R1;
+            V2 = I * R2;
+        } else {
+            svgSwitchBlade.setAttribute('x2', '245');
+            svgSwitchBlade.setAttribute('y2', '120');
+            svgSwitchLabel.textContent = "SW: OFF";
+            svgSwitchLabel.setAttribute('fill', '#f43f5e'); // Red when OFF
+            animCharge.style.display = "none";
+        }
+
+        // Feedback Logic
+        if (!isClosed) {
+            feedbackOut.innerHTML = "🚫 <strong>সার্কিট ওপেন!</strong> সিরিজ সার্কিটের রাস্তা একটাই, সেটি বিচ্ছিন্ন থাকলে কোনো কারেন্ট ফ্লো হবে না।";
+            feedbackOut.style.background = "rgba(244, 63, 94, 0.1)";
+            feedbackOut.style.color = "#fda4af";
+        } else {
+            feedbackOut.style.background = "rgba(16, 185, 129, 0.1)";
+            feedbackOut.style.color = "#6ee7b7";
+            if (V > prevV) feedbackOut.innerHTML = "⚡ ভোল্টেজ বাড়ানো হয়েছে। লক্ষ্য করুন, সিরিজে <strong>R_eq</strong> একই থাকায় কারেন্ট বেড়েছে।";
+            else if (R1 > prevR1 || R2 > prevR2) feedbackOut.innerHTML = "🚧 রোধ বাড়ানো হয়েছে। তাই তুল্য রোধ (Equivalent Resistance) বেড়ে গিয়ে <strong>কারেন্ট কমে গেছে</strong>।";
+            else feedbackOut.innerHTML = "✅ সার্কিট ক্লোজড! কারেন্ট ফ্লো হচ্ছে এবং ভোল্টেজ দুটি রোধের মাঝে ভাগ হয়ে যাচ্ছে।";
+        }
+        
+        prevV = V; prevR1 = R1; prevR2 = R2;
+
+        // Update Text
+        vVal.textContent = V + "V"; 
+        r1Val.textContent = R1 + "Ω"; 
+        r2Val.textContent = R2 + "Ω";
+        
+        svgV.textContent = V + "V"; 
+        svgR1.textContent = "R1 = " + R1 + "Ω"; 
+        svgR2.textContent = "R2 = " + R2 + "Ω";
+        svgV1.textContent = "V1 = " + V1.toFixed(2) + "V";
+        svgV2.textContent = "V2 = " + V2.toFixed(2) + "V";
+        svgI1Label.textContent = "I = " + I.toFixed(2) + "A";
+        svgI2Label.textContent = "I = " + I.toFixed(2) + "A";
+
+        // Update Math Box
+        mathOut.innerHTML = `
+            <div style="margin-bottom:10px; color:#94a3b8; text-align:center;">
+                তুল্য রোধ (Equivalent Resistance): <strong style="color:#fff">R<sub>eq</sub> = R<sub>1</sub> + R<sub>2</sub></strong> = ${R1} + ${R2} = <strong style="color:#f59e0b">${R_eq}Ω</strong>
+            </div>
+            <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                <span style="color:#f43f5e">I = V ÷ R<sub>eq</sub> = <strong>${I.toFixed(2)}A</strong></span>
+                <span style="color:#94a3b8">|</span>
+                <span style="color:#f59e0b">V<sub>1</sub> = I × R<sub>1</sub> = <strong>${V1.toFixed(2)}V</strong></span>
+                <span style="color:#94a3b8">|</span>
+                <span style="color:#10b981">V<sub>2</sub> = I × R<sub>2</sub> = <strong>${V2.toFixed(2)}V</strong></span>
+            </div>
+            <div style="font-weight:bold; color:#fda4af; background:#4c0519; padding:8px; border-radius:6px; text-align:center;">
+                💡 Series Concept: I সব জায়গায় সমান, কিন্তু V ভাগ হয়ে যায় (V = V1 + V2)
+            </div>
+        `;
+
+        // FIXED ANIMATION APPLY 
+        if (isClosed && I > 0) {
+            const animSpeed = Math.max(0.15, 2.0 / I);
+            animCharge.style.animation = 'none'; 
+            void animCharge.offsetWidth;         
+            animCharge.style.animation = `flow ${animSpeed}s linear infinite`; 
+        }
+    }
+
+    switchInput.addEventListener('change', updateSim);
+    vSlider.addEventListener('input', updateSim);
+    r1Slider.addEventListener('input', updateSim);
+    r2Slider.addEventListener('input', updateSim);
+
+    // Initial load
+    setTimeout(updateSim, 100);
+</script>
+</body>
+</html>

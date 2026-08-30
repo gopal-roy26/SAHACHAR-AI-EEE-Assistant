@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium AC Phase Difference Lab - SAHACHAR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #06080e; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0d121c; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            max-width: 1050px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #a855f7; font-weight: 800;}
+        
+        .svg-wrapper {
+            background: #0a0d14; border-radius: 12px; border: 1px solid #1e293b; 
+            padding: 20px; margin-bottom: 20px;
+            background-image: radial-gradient(rgba(168, 85, 247, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex; justify-content: center;
+            overflow: hidden;
+        }
+        svg { width: 100%; max-width: 1000px; height: auto; }
+        
+        .controls { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 20px; text-align: left; background: #0a0d14; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;}
+        .control-group { display: flex; flex-direction: column; gap: 10px; justify-content: center;}
+        .control-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;}
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        /* Component Selector Buttons */
+        .btn-group { display: flex; gap: 8px; }
+        .mode-btn {
+            flex: 1; padding: 12px 5px; font-size: 14px; font-weight: bold; border-radius: 8px;
+            border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer;
+            transition: all 0.3s ease; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px;
+        }
+        .mode-btn:hover { background: #334155; }
+        .mode-btn.active-r { background: #f59e0b; color: #fff; border-color: #fbbf24; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4); }
+        .mode-btn.active-l { background: #ec4899; color: #fff; border-color: #f472b6; box-shadow: 0 0 12px rgba(236, 72, 153, 0.4); }
+        .mode-btn.active-c { background: #06b6d4; color: #fff; border-color: #22d3ee; box-shadow: 0 0 12px rgba(6, 182, 212, 0.4); }
+
+        .play-btn {
+            padding: 10px; background: #10b981; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+        }
+        .play-btn.paused { background: #f59e0b; }
+
+        .math-box { margin-top: 15px; padding: 15px; background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; font-family: monospace; font-size: 15px; color: #e9d5ff; line-height: 1.6;}
+        .feedback-box { margin-top: 15px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 15px; font-weight: 600; color: #6ee7b7; text-align: center; transition: all 0.3s ease;}
+        
+        .civil-rule { background: #0f172a; border-left: 4px solid #a855f7; padding: 15px; margin-top: 15px; font-family: sans-serif; font-size: 14px; color: #cbd5e1; text-align: left; border-radius: 0 8px 8px 0;}
+        .values-panel { background: #1e293b; padding: 10px 15px; border-radius: 8px; border: 1px solid #334155; margin-top: 10px; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;}
+        
+        @media (max-width: 600px) { .controls { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🌊 AC Circuit Analysis (Phase Difference)</h2>
+    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">কম্পোনেন্ট পরিবর্তন করে ভোল্টেজ (V) এবং কারেন্ট (I) এর ফেজর ডায়াগ্রাম ও ওয়েভফর্ম অ্যানিমেশন পর্যবেক্ষণ করুন</p>
+
+    <div class="svg-wrapper">
+        <svg viewBox="0 0 1000 450">
+            <defs>
+                <filter id="glow-v"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="glow-i"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+
+            <!-- ================= MINI CIRCUIT DIAGRAM (TOP CENTER) ================= -->
+            <g transform="translate(380, 20)">
+                <rect x="0" y="0" width="220" height="90" fill="#0f172a" stroke="#334155" stroke-width="2" rx="8"/>
+                <text x="110" y="20" fill="#94a3b8" font-size="12" font-weight="bold" text-anchor="middle">Circuit Diagram</text>
+                
+                <!-- Circuit Closed Loop Wires -->
+                <polyline points="50,40 170,40" fill="none" stroke="#334155" stroke-width="2"/>
+                <polyline points="50,70 170,70" fill="none" stroke="#334155" stroke-width="2"/>
+                
+                <!-- AC Source -->
+                <circle cx="50" cy="55" r="15" fill="#0f172a" stroke="#a855f7" stroke-width="2"/>
+                <path d="M 40 55 Q 45 45 50 55 T 60 55" fill="none" stroke="#a855f7" stroke-width="2"/>
+                
+                <!-- Dynamic Component Placeholder -->
+                <g id="circuit-component" transform="translate(170, 55)">
+                    <!-- Injected via JS -->
+                </g>
+            </g>
+
+            <!-- ================= PHASOR DIAGRAM (LEFT) ================= -->
+            <g transform="translate(150, 260)">
+                <text x="-120" y="-140" fill="#a855f7" font-size="16" font-weight="bold">Phasor Diagram</text>
+                <!-- Axes -->
+                <line x1="-120" y1="0" x2="120" y2="0" stroke="#334155" stroke-width="2" stroke-dasharray="4 4"/>
+                <line x1="0" y1="-120" x2="0" y2="120" stroke="#334155" stroke-width="2" stroke-dasharray="4 4"/>
+                
+                <!-- Reference Circle -->
+                <circle cx="0" cy="0" r="100" fill="none" stroke="#1e293b" stroke-width="2"/>
+                
+                <!-- Rotatable Group for Angle Indicator -->
+                <g id="angle-indicator-group" style="display: none;">
+                    <path id="angle-arc" fill="none" stroke="#fcd34d" stroke-width="2" stroke-dasharray="3 3"/>
+                    <text id="angle-text" fill="#fcd34d" font-size="14" font-weight="bold">90°</text>
+                </g>
+
+                <!-- Phasor V (Red) -->
+                <line id="phasor-v" x1="0" y1="0" x2="100" y2="0" stroke="#ef4444" stroke-width="4" stroke-linecap="round" filter="url(#glow-v)"/>
+                <polygon id="phasor-v-head" points="100,-5 110,0 100,5" fill="#ef4444"/>
+                <text id="phasor-v-label" x="115" y="-10" fill="#ef4444" font-size="16" font-weight="bold">V</text>
+
+                <!-- Phasor I (Cyan) -->
+                <line id="phasor-i" x1="0" y1="0" x2="80" y2="0" stroke="#06b6d4" stroke-width="4" stroke-linecap="round" filter="url(#glow-i)"/>
+                <polygon id="phasor-i-head" points="80,-5 90,0 80,5" fill="#06b6d4"/>
+                <text id="phasor-i-label" x="95" y="-10" fill="#06b6d4" font-size="16" font-weight="bold">I</text>
+            </g>
+
+            <!-- ================= WAVEFORM GRAPH (RIGHT) ================= -->
+            <!-- Shifted slightly to fit Y-axis labels -->
+            <g transform="translate(360, 260)">
+                <text x="0" y="-140" fill="#a855f7" font-size="16" font-weight="bold">Time Domain Waveform</text>
+                
+                <!-- X Axis (Time) with Arrows -->
+                <line x1="-10" y1="0" x2="610" y2="0" stroke="#334155" stroke-width="2"/>
+                <polygon points="610,-5 620,0 610,5" fill="#334155"/>
+                <text x="615" y="-15" fill="#94a3b8" font-size="13" font-weight="bold" text-anchor="end">Time (t) ➔</text>
+                
+                <!-- Y Axis (Amplitude) with Arrows -->
+                <line x1="0" y1="-120" x2="0" y2="120" stroke="#334155" stroke-width="2"/>
+                <polygon points="-5,-120 0,-130 5,-120" fill="#334155"/>
+                <polygon points="-5,120 0,130 5,120" fill="#334155"/>
+                <!-- Vertical Amplitude Label -->
+                <text x="-25" y="0" fill="#94a3b8" font-size="13" font-weight="bold" transform="rotate(-90, -25, 0)" text-anchor="middle">Amplitude (V, I)</text>
+                
+                <!-- Center dashed reference line -->
+                <line x1="300" y1="-120" x2="300" y2="120" stroke="#334155" stroke-width="1" stroke-dasharray="4 4"/>
+                
+                <!-- Dynamic Waveforms -->
+                <polyline id="wave-v" fill="none" stroke="#ef4444" stroke-width="4" filter="url(#glow-v)"/>
+                <polyline id="wave-i" fill="none" stroke="#06b6d4" stroke-width="4" filter="url(#glow-i)"/>
+
+                <!-- Leading Edge Dots -->
+                <circle id="dot-v" cx="600" cy="0" r="6" fill="#ef4444" filter="url(#glow-v)"/>
+                <circle id="dot-i" cx="600" cy="0" r="6" fill="#06b6d4" filter="url(#glow-i)"/>
+            </g>
+        </svg>
+    </div>
+
+    <div class="feedback-box" id="feedback-output">
+        💡 কম্পোনেন্ট সিলেক্ট করুন!
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-header"><span>🔌 Select Component</span></div>
+            <div class="btn-group">
+                <button class="mode-btn active-r" onclick="setComponent('R')">
+                    <span>Resistor (R)</span>
+                </button>
+                <button class="mode-btn" onclick="setComponent('L')">
+                    <span>Inductor (L)</span>
+                </button>
+                <button class="mode-btn" onclick="setComponent('C')">
+                    <span>Capacitor (C)</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <div class="control-header"><span style="color:#a855f7">⏱️ Frequency (Speed)</span> <span id="f-val" style="color:#f1f5f9">1x</span></div>
+            <input type="range" id="f-slider" min="0.1" max="3" step="0.1" value="1" style="accent-color: #a855f7;">
+        </div>
+
+        <div class="control-group" style="align-items: center;">
+            <div class="control-header" style="width: 100%;"><span>⏯️ Animation Control</span></div>
+            <button id="play-btn" class="play-btn" onclick="togglePlay()" style="width: 100%;">⏸ PAUSE ANIMATION</button>
+        </div>
+    </div>
+
+    <div class="math-box">
+        <div id="math-output"></div>
+        
+        <!-- Premium Values Panel -->
+        <div class="values-panel" id="values-panel">
+            <!-- Injected via JS -->
+        </div>
+
+        <!-- Detailed CIVIL Explanation -->
+        <div class="civil-rule">
+            <strong style="color: #a855f7; font-size: 16px;">🎓 EEE Mnemonic "CIVIL" এর পূর্ণাঙ্গ রূপ:</strong><br><br>
+            AC সার্কিটে ভোল্টেজ এবং কারেন্টের লিড/ল্যাগ সহজে মনে রাখার জন্য এই <strong>"CIVIL"</strong> শব্দটি ব্যবহার করা হয়। এটিকে দুই ভাগে ভাগ করা যায়:<br>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 12px; background: #06080e; padding: 15px; border-radius: 8px; border: 1px solid #1e293b;">
+                <div style="flex: 1;">
+                    <strong style="color: #06b6d4; font-size: 20px; letter-spacing: 2px;">C I V</strong><br>
+                    <span style="color:#94a3b8; font-size: 13px;">
+                        <strong>C</strong> = Capacitor<br>
+                        <strong>I</strong> = Current (Leads)<br>
+                        <strong>V</strong> = Voltage<br>
+                    </span>
+                    <p style="margin-top: 5px; color:#e0e7ff; font-size:13px;">
+                        অর্থাৎ, <strong>C</strong> (ক্যাপাসিটর) এর ক্ষেত্রে <strong>I</strong> (কারেন্ট) <strong>V</strong> (ভোল্টেজ) এর আগে থাকে বা <strong>Lead</strong> করে।
+                    </p>
+                </div>
+                
+                <div style="width: 2px; background: #334155; margin: 0 15px;"></div>
+                
+                <div style="flex: 1;">
+                    <strong style="color: #ec4899; font-size: 20px; letter-spacing: 2px;">V I L</strong><br>
+                    <span style="color:#94a3b8; font-size: 13px;">
+                        <strong>V</strong> = Voltage (Leads)<br>
+                        <strong>I</strong> = Current<br>
+                        <strong>L</strong> = Inductor<br>
+                    </span>
+                    <p style="margin-top: 5px; color:#e0e7ff; font-size:13px;">
+                        অর্থাৎ, <strong>L</strong> (ইনডাক্টর) এর ক্ষেত্রে <strong>V</strong> (ভোল্টেজ) <strong>I</strong> (কারেন্ট) এর আগে থাকে। অন্য কথায়, কারেন্ট <strong>Lag</strong> করে।
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Elements
+    const fSlider = document.getElementById('f-slider');
+    const fVal = document.getElementById('f-val');
+    const playBtn = document.getElementById('play-btn');
+    
+    const phasorV = document.getElementById('phasor-v');
+    const phasorVHead = document.getElementById('phasor-v-head');
+    const phasorVLabel = document.getElementById('phasor-v-label');
+    
+    const phasorI = document.getElementById('phasor-i');
+    const phasorIHead = document.getElementById('phasor-i-head');
+    const phasorILabel = document.getElementById('phasor-i-label');
+    
+    const angleGroup = document.getElementById('angle-indicator-group');
+    const angleArc = document.getElementById('angle-arc');
+    const angleText = document.getElementById('angle-text');
+    
+    const waveV = document.getElementById('wave-v');
+    const waveI = document.getElementById('wave-i');
+    const dotV = document.getElementById('dot-v');
+    const dotI = document.getElementById('dot-i');
+    
+    const circuitComponent = document.getElementById('circuit-component');
+    const mathOut = document.getElementById('math-output');
+    const valuesPanel = document.getElementById('values-panel');
+    const feedbackOut = document.getElementById('feedback-output');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
+    // State Variables
+    let currentComponent = 'R'; 
+    let phaseDiff = 0; // In radians
+    let isPlaying = true;
+    let waveOffset = 0; 
+    let lastTime = performance.now();
+
+    const V_amp = 100; // Peak Voltage
+    const I_amp = 80;  // Peak Current
+    const V_rms = V_amp / Math.sqrt(2);
+    const I_rms = I_amp / Math.sqrt(2);
+    const graphWidth = 600;
+
+    // Draw Complete Circuit Components with perfectly aligned coordinates
+    const drawComponent = (type) => {
+        let svg = '';
+        if(type === 'R') {
+            svg = `<polyline points="0,-15 -10,-10 10,-5 -10,0 10,5 -10,10 0,15" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                   <text x="18" y="5" fill="#f59e0b" font-size="14" font-weight="bold">R</text>`;
+        } else if(type === 'L') {
+            svg = `<path d="M 0 -15 Q -15 -11.25 0 -7.5 Q -15 -3.75 0 0 Q -15 3.75 0 7.5 Q -15 11.25 0 15" fill="none" stroke="#ec4899" stroke-width="3" stroke-linecap="round"/>
+                   <text x="18" y="5" fill="#ec4899" font-size="14" font-weight="bold">L</text>`;
+        } else if(type === 'C') {
+            svg = `<line x1="0" y1="-15" x2="0" y2="-4" stroke="#334155" stroke-width="2"/>
+                   <line x1="-12" y1="-4" x2="12" y2="-4" stroke="#06b6d4" stroke-width="4" stroke-linecap="round"/>
+                   <line x1="-12" y1="4" x2="12" y2="4" stroke="#06b6d4" stroke-width="4" stroke-linecap="round"/>
+                   <line x1="0" y1="4" x2="0" y2="15" stroke="#334155" stroke-width="2"/>
+                   <text x="20" y="5" fill="#06b6d4" font-size="14" font-weight="bold">C</text>`;
+        }
+        circuitComponent.innerHTML = svg;
+    };
+
+    function setComponent(type) {
+        currentComponent = type;
+        modeBtns.forEach(btn => btn.className = 'mode-btn');
+        drawComponent(type);
+
+        if (type === 'R') {
+            modeBtns[0].classList.add('active-r');
+            phaseDiff = 0;
+            angleGroup.style.display = "none";
+            feedbackOut.style.background = "rgba(245, 158, 11, 0.1)";
+            feedbackOut.style.color = "#fcd34d";
+            feedbackOut.innerHTML = `✅ <strong>Pure Resistor:</strong> ভোল্টেজ (V) এবং কারেন্ট (I) <strong>In-Phase</strong> আছে। এদের মাঝে কোনো অ্যাঙ্গেল বা সময়ের পার্থক্য নেই (Phase Angle = 0°)।`;
+            
+        } else if (type === 'L') {
+            modeBtns[1].classList.add('active-l');
+            phaseDiff = -Math.PI / 2; // Current lags (-90 deg)
+            angleGroup.style.display = "block";
+            angleArc.setAttribute('d', 'M 30 0 A 30 30 0 0 1 0 30');
+            angleText.setAttribute('x', '15'); angleText.setAttribute('y', '25');
+            
+            feedbackOut.style.background = "rgba(236, 72, 153, 0.1)";
+            feedbackOut.style.color = "#f9a8d4";
+            feedbackOut.innerHTML = `⚠️ <strong>Pure Inductor:</strong> ইনডাক্টর কারেন্ট পরিবর্তনে বাধা দেয়। তাই <strong>কারেন্ট (I) ভোল্টেজের (V) চেয়ে ৯০° পিছিয়ে (Lag)</strong> থাকে।`;
+            
+        } else if (type === 'C') {
+            modeBtns[2].classList.add('active-c');
+            phaseDiff = Math.PI / 2; // Current leads (+90 deg)
+            angleGroup.style.display = "block";
+            angleArc.setAttribute('d', 'M 30 0 A 30 30 0 0 0 0 -30');
+            angleText.setAttribute('x', '15'); angleText.setAttribute('y', '-15');
+            
+            feedbackOut.style.background = "rgba(6, 182, 212, 0.1)";
+            feedbackOut.style.color = "#67e8f9";
+            feedbackOut.innerHTML = `🚀 <strong>Pure Capacitor:</strong> ক্যাপাসিটর দ্রুত চার্জ গ্রহণ করে। তাই <strong>কারেন্ট (I) ভোল্টেজের (V) চেয়ে ৯০° এগিয়ে (Lead)</strong> থাকে।`;
+        }
+    }
+
+    function togglePlay() {
+        isPlaying = !isPlaying;
+        if(isPlaying) {
+            playBtn.textContent = "⏸ PAUSE ANIMATION";
+            playBtn.classList.remove('paused');
+            lastTime = performance.now();
+            requestAnimationFrame(simLoop);
+        } else {
+            playBtn.textContent = "▶ PLAY ANIMATION";
+            playBtn.classList.add('paused');
+        }
+    }
+
+    function updatePhasor(el, head, label, angle, radius) {
+        // Math coordinates to SVG coordinates (Invert Y)
+        const x = radius * Math.cos(angle);
+        const y = -radius * Math.sin(angle);
+        
+        el.setAttribute('x2', x);
+        el.setAttribute('y2', y);
+        
+        // Rotate Arrow head
+        const deg = -(angle * 180 / Math.PI); 
+        head.setAttribute('transform', `translate(${x},${y}) rotate(${deg}) translate(${-radius},0)`);
+        
+        // Label position
+        label.setAttribute('x', x + (x>0? 10 : -20));
+        label.setAttribute('y', y + (y>0? 20 : -10));
+    }
+
+    function simLoop(currentTime) {
+        if(!isPlaying) return;
+
+        const dt = (currentTime - lastTime) / 1000; 
+        lastTime = currentTime;
+        
+        const speed = parseFloat(fSlider.value);
+        fVal.textContent = speed.toFixed(1) + "x";
+
+        waveOffset += speed * 2 * dt; // Angular velocity (omega)
+
+        // 1. Update Phasors
+        updatePhasor(phasorV, phasorVHead, phasorVLabel, waveOffset, V_amp);
+        updatePhasor(phasorI, phasorIHead, phasorILabel, waveOffset + phaseDiff, I_amp);
+
+        // Rotate Angle Indicator to stick with V phasor
+        if(phaseDiff !== 0) {
+            const vDeg = -(waveOffset * 180 / Math.PI);
+            angleGroup.setAttribute('transform', `rotate(${vDeg})`);
+        }
+
+        // 2. Update Waveforms
+        let vPts = [];
+        let iPts = [];
+        let currV = 0, curri = 0;
+
+        for(let x = 0; x <= graphWidth; x += 4) {
+            const t = waveOffset - (graphWidth - x) * 0.01; 
+            const v = Math.sin(t) * V_amp;
+            const i = Math.sin(t + phaseDiff) * I_amp;
+            
+            vPts.push(`${x},${-v}`);
+            iPts.push(`${x},${-i}`);
+
+            if(x === graphWidth) {
+                currV = v;
+                curri = i;
+            }
+        }
+
+        waveV.setAttribute('points', vPts.join(' '));
+        waveI.setAttribute('points', iPts.join(' '));
+
+        // Update Dots on the leading edge
+        dotV.setAttribute('cy', -currV);
+        dotI.setAttribute('cy', -curri);
+
+        // Equations
+        let eqV = `v(t) = V<sub>max</sub> sin(ωt)`;
+        let eqI = `i(t) = I<sub>max</sub> sin(ωt)`;
+        if(currentComponent === 'L') eqI = `i(t) = I<sub>max</sub> sin(ωt - 90°)`;
+        if(currentComponent === 'C') eqI = `i(t) = I<sub>max</sub> sin(ωt + 90°)`;
+
+        mathOut.innerHTML = `
+            <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px;">
+                <span style="color:#ef4444; font-size:18px;"><strong>${eqV}</strong></span>
+                <span style="color:#06b6d4; font-size:18px;"><strong>${eqI}</strong></span>
+            </div>
+        `;
+
+        // Update Values Panel
+        valuesPanel.innerHTML = `
+            <div style="text-align: center;">
+                <span style="color:#94a3b8; font-size: 12px;">Peak Voltage (V<sub>max</sub>)</span><br>
+                <strong style="color:#ef4444; font-size: 16px;">${V_amp} V</strong>
+            </div>
+            <div style="text-align: center;">
+                <span style="color:#94a3b8; font-size: 12px;">Peak Current (I<sub>max</sub>)</span><br>
+                <strong style="color:#06b6d4; font-size: 16px;">${I_amp} A</strong>
+            </div>
+            <div style="width: 1px; background: #334155;"></div>
+            <div style="text-align: center;">
+                <span style="color:#94a3b8; font-size: 12px;">RMS Voltage (V<sub>rms</sub>)</span><br>
+                <strong style="color:#f8fafc; font-size: 16px;">${V_rms.toFixed(1)} V</strong>
+            </div>
+            <div style="text-align: center;">
+                <span style="color:#94a3b8; font-size: 12px;">RMS Current (I<sub>rms</sub>)</span><br>
+                <strong style="color:#f8fafc; font-size: 16px;">${I_rms.toFixed(1)} A</strong>
+            </div>
+            <div style="width: 1px; background: #334155;"></div>
+            <div style="text-align: center; background: #0f172a; padding: 2px 10px; border-radius: 6px; border: 1px solid #334155;">
+                <span style="color:#a855f7; font-size: 12px; font-weight:bold;">Live Instantaneous Values</span><br>
+                <span style="color:#ef4444; font-weight:bold;">v(t) = ${currV.toFixed(1)} V</span> | 
+                <span style="color:#06b6d4; font-weight:bold;">i(t) = ${curri.toFixed(1)} A</span>
+            </div>
+        `;
+
+        requestAnimationFrame(simLoop);
+    }
+
+    // Initialize
+    fSlider.addEventListener('input', () => fVal.textContent = fSlider.value + "x");
+    setComponent('R');
+    requestAnimationFrame(simLoop);
+</script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Diode P-N Junction Lab - SAHACHAR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #06080e; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0d121c; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            max-width: 950px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #3b82f6; font-weight: 800;}
+        
+        .svg-wrapper {
+            background: #0a0d14; border-radius: 12px; border: 1px solid #1e293b; 
+            padding: 20px; margin-bottom: 20px;
+            background-image: radial-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex; justify-content: center;
+            overflow: hidden;
+        }
+        svg { width: 100%; max-width: 850px; height: auto; }
+        
+        .charge { stroke-dasharray: 12 36; }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: left; background: #0a0d14; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;}
+        .control-group { display: flex; flex-direction: column; gap: 8px; justify-content: center;}
+        .control-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;}
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        /* Bias Toggle Switch */
+        .switch-container { display: flex; flex-direction: column; gap: 10px; background: rgba(59, 130, 246, 0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);}
+        .btn-group { display: flex; gap: 8px; }
+        .mode-btn {
+            flex: 1; padding: 10px 5px; font-size: 12px; font-weight: bold; border-radius: 6px;
+            border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer;
+            transition: all 0.3s ease; text-align: center;
+        }
+        .mode-btn.active-fwd { background: #10b981; color: #fff; border-color: #34d399; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+        .mode-btn.active-rev { background: #f43f5e; color: #fff; border-color: #fb7185; box-shadow: 0 0 12px rgba(244, 63, 94, 0.4); }
+
+        .math-box { margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; font-family: monospace; font-size: 15px; color: #bfdbfe; line-height: 1.6;}
+        .feedback-box { margin-top: 15px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 14px; font-weight: 600; color: #6ee7b7; text-align: center; transition: all 0.3s ease;}
+        
+        @media (max-width: 600px) { .controls { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔬 Diode Forward & Reverse Bias (P-N Junction)</h2>
+    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">সুইচ দিয়ে পোলারিটি পরিবর্তন করে ডেপলেশন লেয়ার (Depletion Layer) এবং কারেন্ট ফ্লো লক্ষ্য করুন</p>
+
+    <div class="svg-wrapper">
+        <svg viewBox="0 0 900 450">
+            <defs>
+                <filter id="glow-green"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="glow-red"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <pattern id="pattern-p" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <circle cx="5" cy="5" r="2" fill="#ef4444" opacity="0.6"/> 
+                </pattern>
+                <pattern id="pattern-n" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <circle cx="5" cy="5" r="2" fill="#3b82f6" opacity="0.6"/> 
+                </pattern>
+            </defs>
+
+            <!-- ================= STATIC WIRES ================= -->
+            <!-- Left Side Wire (Fixed to x=430 at battery) -->
+            <polyline points="430,350 200,350 200,150 330,150" fill="none" stroke="#334155" stroke-width="4"/>
+            <!-- Right Side Wire (Fixed to x=470 at battery) -->
+            <polyline points="570,150 700,150 700,350 470,350" fill="none" stroke="#334155" stroke-width="4"/>
+
+            <!-- ================= DYNAMIC BATTERY (BOTTOM CENTER) ================= -->
+            <g id="battery-group" style="transition: all 0.3s ease;">
+                <!-- Left Plate (Fixed at x=430) -->
+                <line id="bat-left-plate" x1="430" y1="330" x2="430" y2="370" stroke="#ef4444" stroke-width="6"/> 
+                <!-- Right Plate (Fixed at x=470) -->
+                <line id="bat-right-plate" x1="470" y1="310" x2="470" y2="390" stroke="#3b82f6" stroke-width="10"/> 
+                
+                <!-- Polarity Labels -->
+                <text id="bat-left-label" x="415" y="340" fill="#ef4444" font-size="20" font-weight="bold" text-anchor="end">+</text>
+                <text id="bat-right-label" x="485" y="340" fill="#3b82f6" font-size="24" font-weight="bold" text-anchor="start">-</text>
+            </g>
+            <text x="450" y="415" fill="#f1f5f9" font-size="16" font-weight="bold" text-anchor="middle" id="svg-v-val">V = 5.0V</text>
+
+            <!-- ================= RESISTOR (RIGHT) ================= -->
+            <polyline points="700,150 700,210 680,220 720,240 680,260 720,280 680,300 700,310 700,350" fill="none" stroke="#f59e0b" stroke-width="4"/>
+            <text x="735" y="255" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="start" id="svg-r-val">R = 1kΩ</text>
+
+            <!-- ================= P-N JUNCTION DIODE (TOP CENTER) ================= -->
+            <!-- PERFECT Diode Schematic Symbol -->
+            <g transform="translate(450, 85)">
+                <!-- Wires connecting to the symbol -->
+                <line x1="-50" y1="0" x2="-25" y2="0" stroke="#94a3b8" stroke-width="3"/>
+                <line x1="15" y1="0" x2="50" y2="0" stroke="#94a3b8" stroke-width="3"/>
+                
+                <!-- Anode (Back Vertical Line) - FIXED! -->
+                <line x1="-25" y1="-20" x2="-25" y2="20" stroke="#94a3b8" stroke-width="3"/>
+                <!-- Triangle -->
+                <polygon points="-25,-20 15,0 -25,20" fill="none" stroke="#94a3b8" stroke-width="3"/>
+                <!-- Cathode (Front Vertical Line) -->
+                <line x1="15" y1="-20" x2="15" y2="20" stroke="#94a3b8" stroke-width="3"/>
+                
+                <text x="-5" y="-35" fill="#94a3b8" font-size="14" font-weight="bold" text-anchor="middle">Silicon Diode (1N4007)</text>
+            </g>
+
+            <!-- P-N Block Visual (Touching perfectly at center) -->
+            <g transform="translate(330, 120)">
+                <!-- P-Type Region (Width 120, starts at 0) -->
+                <rect x="0" y="0" width="120" height="60" fill="url(#pattern-p)" stroke="#ef4444" stroke-width="2"/>
+                <text x="60" y="38" fill="#ef4444" font-size="24" font-weight="bold" text-anchor="middle">P</text>
+                
+                <!-- N-Type Region (Width 120, starts at 120) -->
+                <rect x="120" y="0" width="120" height="60" fill="url(#pattern-n)" stroke="#3b82f6" stroke-width="2"/>
+                <text x="180" y="38" fill="#3b82f6" font-size="24" font-weight="bold" text-anchor="middle">N</text>
+                
+                <!-- Dynamic Depletion Layer (Overlays the junction at x=120) -->
+                <rect id="depletion-layer" x="118" y="0" width="4" height="60" fill="#1e293b" stroke="#475569" stroke-width="1.5" style="transition: all 0.4s ease;"/>
+                <text x="120" y="80" fill="#94a3b8" font-size="12" font-weight="bold" text-anchor="middle">Depletion Region</text>
+            </g>
+
+            <!-- ================= CURRENT ARROW & LABELS ================= -->
+            <g id="current-arrow-group" style="display: none;">
+                <!-- Moving Arrow -->
+                <polyline id="svg-i-arrow" points="250,140 260,150 250,160" fill="none" stroke="#10b981" stroke-width="3"/>
+                <text id="svg-i-val" x="255" y="130" fill="#10b981" font-size="14" font-weight="bold" text-anchor="middle">I = 0.00mA</text>
+            </g>
+
+            <!-- ================= ANIMATED CHARGE FLOW ================= -->
+            <!-- Forward Flow (Clockwise: Left Plate -> P -> N -> Right Plate) -->
+            <path id="anim-fwd-flow" class="charge" d="M 430 350 L 200 350 L 200 150 L 330 150 M 570 150 L 700 150 L 700 350 L 470 350" fill="none" stroke="#10b981" stroke-width="6" stroke-linecap="round" filter="url(#glow-green)" style="display: none;"/>
+            
+            <!-- Reverse Attempt (Counter-Clockwise - Blocked at Junction) -->
+            <path id="anim-rev-flow" class="charge" d="M 470 350 L 700 350 L 700 150 L 570 150" fill="none" stroke="#f43f5e" stroke-width="6" stroke-linecap="round" filter="url(#glow-red)" style="display: none; stroke-dasharray: 4 20; opacity: 0.5;"/>
+        </svg>
+    </div>
+
+    <div class="feedback-box" id="feedback-output">
+        💡 মোড সিলেক্ট করুন!
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-header"><span>🕹️ Bias Polarity</span></div>
+            <div class="btn-group">
+                <button class="mode-btn active-fwd" onclick="setBias('forward')">FORWARD BIAS<br><small>(+ to P, - to N)</small></button>
+                <button class="mode-btn" onclick="setBias('reverse')">REVERSE BIAS<br><small>(- to P, + to N)</small></button>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#ef4444">⚡ V_Source (V)</span> <span id="v-val" style="color:#f1f5f9">5.0V</span></div>
+            <input type="range" id="v-slider" min="0" max="15" step="0.1" value="5.0" style="accent-color: #ef4444;">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#f59e0b">🚧 Resistance (R)</span> <span id="r-val" style="color:#f1f5f9">1kΩ</span></div>
+            <input type="range" id="r-slider" min="0.1" max="5" step="0.1" value="1" style="accent-color: #f59e0b;">
+        </div>
+    </div>
+
+    <div class="math-box" id="math-output">
+        <!-- Math injects here -->
+    </div>
+</div>
+
+<script>
+    // Elements
+    const vSlider = document.getElementById('v-slider');
+    const rSlider = document.getElementById('r-slider');
+    
+    const vVal = document.getElementById('v-val');
+    const rVal = document.getElementById('r-val');
+    
+    const svgV = document.getElementById('svg-v-val');
+    const svgR = document.getElementById('svg-r-val');
+    const svgIVal = document.getElementById('svg-i-val');
+    
+    const batLeftPlate = document.getElementById('bat-left-plate');
+    const batRightPlate = document.getElementById('bat-right-plate');
+    const batLeftLabel = document.getElementById('bat-left-label');
+    const batRightLabel = document.getElementById('bat-right-label');
+    
+    const depletionLayer = document.getElementById('depletion-layer');
+    const curArrowGroup = document.getElementById('current-arrow-group');
+    const animFwdFlow = document.getElementById('anim-fwd-flow');
+    const animRevFlow = document.getElementById('anim-rev-flow');
+    
+    const mathOut = document.getElementById('math-output');
+    const feedbackOut = document.getElementById('feedback-output');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
+    let isForwardBias = true;
+    const V_threshold = 0.7; // Silicon Diode Threshold
+    
+    let lastTime = performance.now();
+    let dashOffset = 48;
+
+    function setBias(mode) {
+        isForwardBias = (mode === 'forward');
+        modeBtns[0].className = 'mode-btn' + (isForwardBias ? ' active-fwd' : '');
+        modeBtns[1].className = 'mode-btn' + (!isForwardBias ? ' active-rev' : '');
+        
+        // Swap Battery Polarity Visuals ONLY (Positions stay exactly at x=430 and x=470)
+        if (isForwardBias) {
+            batLeftPlate.setAttribute('stroke', '#ef4444'); batLeftPlate.setAttribute('stroke-width', '6');
+            batLeftPlate.setAttribute('y1', '330'); batLeftPlate.setAttribute('y2', '370');
+            
+            batRightPlate.setAttribute('stroke', '#3b82f6'); batRightPlate.setAttribute('stroke-width', '10');
+            batRightPlate.setAttribute('y1', '310'); batRightPlate.setAttribute('y2', '390');
+            
+            batLeftLabel.textContent = "+"; batLeftLabel.setAttribute('fill', '#ef4444');
+            batRightLabel.textContent = "-"; batRightLabel.setAttribute('fill', '#3b82f6');
+        } else {
+            batLeftPlate.setAttribute('stroke', '#3b82f6'); batLeftPlate.setAttribute('stroke-width', '10');
+            batLeftPlate.setAttribute('y1', '310'); batLeftPlate.setAttribute('y2', '390');
+            
+            batRightPlate.setAttribute('stroke', '#ef4444'); batRightPlate.setAttribute('stroke-width', '6');
+            batRightPlate.setAttribute('y1', '330'); batRightPlate.setAttribute('y2', '370');
+            
+            batLeftLabel.textContent = "-"; batLeftLabel.setAttribute('fill', '#3b82f6');
+            batRightLabel.textContent = "+"; batRightLabel.setAttribute('fill', '#ef4444');
+        }
+    }
+
+    // Main Simulation Loop
+    function simLoop(currentTime) {
+        const dt = (currentTime - lastTime) / 1000; 
+        lastTime = currentTime;
+
+        const V = parseFloat(vSlider.value);
+        const R = parseFloat(rSlider.value); // in kOhms
+        let I_mA = 0;
+        let V_diode = 0;
+
+        if (isForwardBias) {
+            if (V > V_threshold) {
+                // Conducts!
+                V_diode = V_threshold;
+                I_mA = (V - V_threshold) / R;
+                
+                // Visuals: Depletion layer shrinks to 4px centered at x=120
+                depletionLayer.setAttribute('width', '4'); 
+                depletionLayer.setAttribute('x', '118'); 
+                
+                curArrowGroup.style.display = 'block';
+                animFwdFlow.style.display = 'block';
+                animRevFlow.style.display = 'none';
+                
+                feedbackOut.style.background = "rgba(16, 185, 129, 0.1)";
+                feedbackOut.style.color = "#6ee7b7";
+                feedbackOut.innerHTML = `✅ <strong>ফরোয়ার্ড বায়াস:</strong> ভোল্টেজ ০.৭V অতিক্রম করেছে। ডেপলেশন লেয়ার ভেঙে কারেন্ট ফ্লো হচ্ছে!`;
+                
+                // JS Animate Flow
+                let flowSpeed = 20 + (I_mA * 5); 
+                dashOffset -= flowSpeed * dt;
+                if (dashOffset <= 0) dashOffset += 48;
+                animFwdFlow.style.strokeDashoffset = dashOffset;
+                
+            } else {
+                // Forward biased but V < 0.7V
+                V_diode = V;
+                I_mA = 0;
+                
+                depletionLayer.setAttribute('width', '20'); 
+                depletionLayer.setAttribute('x', '110');
+                
+                curArrowGroup.style.display = 'none';
+                animFwdFlow.style.display = 'none';
+                animRevFlow.style.display = 'none';
+                
+                feedbackOut.style.background = "rgba(245, 158, 11, 0.1)";
+                feedbackOut.style.color = "#fde68a";
+                feedbackOut.innerHTML = `⚠️ <strong>ভোল্টেজ অপর্যাপ্ত:</strong> সিলিকন ডায়োড অন হতে অন্তত <strong>০.৭V</strong> প্রয়োজন (Barrier Potential)।`;
+            }
+        } else {
+            // Reverse Bias
+            V_diode = V; 
+            I_mA = 0; 
+            
+            // Visuals: Depletion layer expands based on voltage
+            const depWidth = 40 + (V * 2); 
+            depletionLayer.setAttribute('width', depWidth.toString()); 
+            depletionLayer.setAttribute('x', (120 - depWidth/2).toString()); 
+            
+            curArrowGroup.style.display = 'none';
+            animFwdFlow.style.display = 'none';
+            animRevFlow.style.display = 'block'; 
+            
+            // Subtle JS Animation for the blocked reverse flow
+            dashOffset -= 15 * dt;
+            if (dashOffset <= 0) dashOffset += 48;
+            animRevFlow.style.strokeDashoffset = dashOffset;
+            
+            feedbackOut.style.background = "rgba(244, 63, 94, 0.1)";
+            feedbackOut.style.color = "#fda4af";
+            feedbackOut.innerHTML = `🚫 <strong>রিভার্স বায়াস:</strong> ডেপলেশন লেয়ার চওড়া হয়ে গেছে! ডায়োডটি এখন ওপেন সার্কিটের মতো কারেন্ট ব্লক করছে।`;
+        }
+
+        // Update Text
+        vVal.textContent = V.toFixed(1) + "V";
+        rVal.textContent = R.toFixed(1) + "kΩ";
+        svgV.textContent = "V = " + V.toFixed(1) + "V";
+        svgR.textContent = "R = " + R.toFixed(1) + "kΩ";
+        svgIVal.textContent = "I = " + I_mA.toFixed(2) + "mA";
+
+        // Update Math Box
+        mathOut.innerHTML = `
+            <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                <span style="color:#94a3b8">Diode State: <strong style="${isForwardBias && V>0.7 ? 'color:#10b981' : 'color:#f43f5e'}">${isForwardBias && V>0.7 ? 'ON (Conducting)' : 'OFF (Blocking)'}</strong></span>
+                <span style="color:#94a3b8">Barrier Potential (V<sub>D</sub>): <strong style="color:#38bdf8">0.7V</strong></span>
+            </div>
+            <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px; background:#1e1b4b; padding:10px; border-radius:8px;">
+                <span style="color:#f59e0b">V<sub>Resistor</sub> = ${isForwardBias && V>0.7 ? (V - V_threshold).toFixed(2) : '0.00'}V</span>
+                <span style="color:#ef4444">V<sub>Diode_Drop</sub> = ${V_diode.toFixed(2)}V</span>
+                <span style="color:#10b981">I = ${isForwardBias && V>0.7 ? '(V - 0.7) / R' : '0'} = <strong>${I_mA.toFixed(2)}mA</strong></span>
+            </div>
+        `;
+
+        requestAnimationFrame(simLoop);
+    }
+
+    // Initialize
+    setBias('forward');
+    requestAnimationFrame(simLoop);
+</script>
+</body>
+</html>

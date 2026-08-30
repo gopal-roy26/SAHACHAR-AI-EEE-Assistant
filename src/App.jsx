@@ -1062,10 +1062,28 @@ function App() {
   
   // ================= VIRTUAL LAB EXPLORER STATE =================
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // === UPDATED LAB STATE INITIALIZATION WITH EXPLICIT NAMES ===
   const [customLabs, setCustomLabs] = useState(() => {
     const saved = localStorage.getItem('sahachar_custom_labs');
-    return saved ? JSON.parse(saved) : [];
+    const userLabs = saved ? JSON.parse(saved) : [];
+    
+    const defaultLabs = [
+      { id: 'sim-1', name: "Ohm's Law Animation", path: '/labs/ohms-law.html' },
+      { id: 'sim-2', name: "KCL Simulation", path: '/labs/kcl-simulation.html' },
+      { id: 'sim-3', name: "KVL Simulation", path: '/labs/kvl-simulation.html' },
+      { id: 'sim-4', name: "Series Circuit", path: '/labs/series-circuit.html' },
+      { id: 'sim-5', name: "Parallel Circuit", path: '/labs/parallel-circuit.html' },
+      { id: 'sim-6', name: "RC Circuit", path: '/labs/rc-circuit.html' },
+      { id: 'sim-7', name: "AC Phase Difference", path: '/labs/ac-phase-difference.html' },
+      { id: 'sim-8', name: "AC Oscilloscope", path: '/labs/ac-oscilloscope.html' },
+      { id: 'sim-9', name: "Diode P-N Junction", path: '/labs/diode-pn-junction.html' },
+      { id: 'sim-10', name: "Smart Grid SCADA", path: '/labs/smart-grid.html' }
+    ];
+    
+    return [...defaultLabs, ...userLabs];
   });
+
   const [activeLab, setActiveLab] = useState(null);
   const [isLabFullscreen, setIsLabFullscreen] = useState(false);
   const labFileInputRef = useRef(null);
@@ -1573,14 +1591,19 @@ STRICT FORMATTING RULES:
                 </button>
               </div>
             </div>
+            
+            {/* ====== MODIFIED IFRAME SECTION ====== */}
             <div className="flex-1 bg-white relative">
               <iframe 
-                srcDoc={activeLab.content} 
+                src={activeLab.path ? activeLab.path : undefined}
+                srcDoc={activeLab.content ? activeLab.content : undefined} 
                 className="w-full h-full border-none absolute inset-0" 
                 title={activeLab.name} 
                 sandbox="allow-scripts allow-same-origin"
               />
             </div>
+            {/* ======================================= */}
+            
           </div>
         </div>
       )}

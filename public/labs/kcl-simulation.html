@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect KCL Simulation V2.3</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #06080e; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0d121c; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            max-width: 850px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #38bdf8; font-weight: 800;}
+        
+        .svg-wrapper {
+            background: #0a0d14; border-radius: 12px; border: 1px solid #1e293b; 
+            padding: 20px; margin-bottom: 20px;
+            background-image: radial-gradient(rgba(56, 189, 248, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex; justify-content: center;
+        }
+        svg { width: 100%; max-width: 700px; height: auto; }
+        
+        .charge { 
+            stroke-dasharray: 12 36; 
+            animation: flow 2s linear infinite;
+        }
+        @keyframes flow { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: left; background: #0a0d14; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;}
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;}
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        .math-box { margin-top: 15px; padding: 15px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; font-family: monospace; font-size: 15px; color: #38bdf8;}
+        
+        .feedback-box { margin-top: 15px; padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; font-size: 14px; font-weight: 600; color: #c4b5fd; text-align: center; transition: all 0.3s ease;}
+        
+        @media (max-width: 600px) { .controls { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚡ KCL (Kirchhoff's Current Law) Virtual Lab</h2>
+    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">স্লাইডার নেড়ে লাইভ কারেন্ট ফ্লো এবং KCL এর সমীকরণ পর্যবেক্ষণ করুন</p>
+
+    <div class="svg-wrapper">
+        <svg viewBox="0 0 650 500">
+            <defs>
+                <filter id="glow-red"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="glow-blue"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="glow-yellow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+
+            <!-- ================= STATIC WIRES ================= -->
+            <!-- Main Wires -->
+            <polyline points="100,400 100,200 200,200" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="450,200 550,200 550,400 335,400" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="100,400 315,400" fill="none" stroke="#334155" stroke-width="4"/>
+
+            <!-- Top Branch -->
+            <polyline points="200,200 200,100 290,100" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="360,100 450,100 450,200" fill="none" stroke="#334155" stroke-width="4"/>
+            
+            <!-- Bottom Branch -->
+            <polyline points="200,200 200,300 290,300" fill="none" stroke="#334155" stroke-width="4"/>
+            <polyline points="360,300 450,300 450,200" fill="none" stroke="#334155" stroke-width="4"/>
+
+            <!-- Nodes & Clean Badges -->
+            <circle cx="200" cy="200" r="7" fill="#38bdf8" />
+            <g transform="translate(130, 220)">
+                <rect width="65" height="26" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
+                <text x="32.5" y="17" fill="#38bdf8" font-size="13" font-weight="bold" text-anchor="middle">Node A</text>
+            </g>
+
+            <circle cx="450" cy="200" r="7" fill="#38bdf8" />
+            <g transform="translate(455, 220)">
+                <rect width="65" height="26" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
+                <text x="32.5" y="17" fill="#38bdf8" font-size="13" font-weight="bold" text-anchor="middle">Node B</text>
+            </g>
+
+            <!-- ================= COMPONENTS ================= -->
+            <!-- Battery (Source) -->
+            <line x1="315" y1="380" x2="315" y2="420" stroke="#ef4444" stroke-width="6"/>
+            <line x1="335" y1="390" x2="335" y2="410" stroke="#3b82f6" stroke-width="10"/>
+            <text x="300" y="390" fill="#ef4444" font-size="22" font-weight="bold">+</text>
+            <text x="345" y="390" fill="#3b82f6" font-size="26" font-weight="bold">-</text>
+            <text x="325" y="445" fill="#ef4444" font-size="14" font-weight="bold" text-anchor="middle">Source</text>
+            <text x="325" y="465" fill="#f1f5f9" font-size="16" font-weight="bold" text-anchor="middle" id="svg-v-val">12V</text>
+
+            <!-- Resistor 1 (Top) -->
+            <polyline points="290,100 298,80 312,120 326,80 340,120 352,100 360,100" fill="none" stroke="#f59e0b" stroke-width="4"/>
+            <text x="325" y="60" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="middle" id="svg-r1-val">R1 = 10Ω</text>
+
+            <!-- Resistor 2 (Bottom) -->
+            <polyline points="290,300 298,280 312,320 326,280 340,320 352,300 360,300" fill="none" stroke="#10b981" stroke-width="4"/>
+            <text x="325" y="350" fill="#10b981" font-size="16" font-weight="bold" text-anchor="middle" id="svg-r2-val">R2 = 20Ω</text>
+
+            <!-- ================= CURRENT ARROWS & LABELS ================= -->
+            <!-- I_total_in Arrow (লেখা সামান্য ওপরে তোলা হয়েছে) -->
+            <polyline points="135,190 145,200 135,210" fill="none" stroke="#ef4444" stroke-width="3"/>
+            <text x="140" y="170" fill="#ef4444" font-size="14" font-weight="bold" text-anchor="middle" id="svg-itot-val">I_in = 1.80A</text>
+
+            <!-- I_1 Arrow -->
+            <polyline points="235,90 245,100 235,110" fill="none" stroke="#f59e0b" stroke-width="3"/>
+            <text x="240" y="85" fill="#f59e0b" font-size="14" font-weight="bold" text-anchor="middle" id="svg-i1-val">I1 = 1.20A</text>
+
+            <!-- I_2 Arrow -->
+            <polyline points="235,290 245,300 235,310" fill="none" stroke="#10b981" stroke-width="3"/>
+            <text x="240" y="285" fill="#10b981" font-size="14" font-weight="bold" text-anchor="middle" id="svg-i2-val">I2 = 0.60A</text>
+
+            <!-- I_total_out Arrow (ডানদিকে সরানো হয়েছে এবং তার থেকে সামান্য ওপরে তোলা হয়েছে) -->
+            <polyline points="505,190 515,200 505,210" fill="none" stroke="#3b82f6" stroke-width="3"/>
+            <text x="510" y="170" fill="#3b82f6" font-size="14" font-weight="bold" text-anchor="middle" id="svg-iout-val">I_out = 1.80A</text>
+
+            <!-- ================= ANIMATED CHARGE FLOW ================= -->
+            <!-- Main In -->
+            <path id="anim-main-in" class="charge" d="M 315 400 L 100 400 L 100 200 L 200 200" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round" filter="url(#glow-red)"/>
+            
+            <!-- Branch 1 -->
+            <path id="anim-branch1" class="charge" d="M 200 200 L 200 100 L 450 100 L 450 200" fill="none" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" filter="url(#glow-yellow)"/>
+            
+            <!-- Branch 2 -->
+            <path id="anim-branch2" class="charge" d="M 200 200 L 200 300 L 450 300 L 450 200" fill="none" stroke="#10b981" stroke-width="6" stroke-linecap="round" filter="url(#glow-yellow)"/>
+            
+            <!-- Main Out -->
+            <path id="anim-main-out" class="charge" d="M 450 200 L 550 200 L 550 400 L 335 400" fill="none" stroke="#3b82f6" stroke-width="6" stroke-linecap="round" filter="url(#glow-blue)"/>
+            
+        </svg>
+    </div>
+
+    <div class="feedback-box" id="feedback-output">
+        💡 স্লাইডার নেড়ে ভোল্টেজ বা রেজিস্ট্যান্স পরিবর্তন করুন।
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-header"><span style="color:#ef4444">⚡ Voltage (V)</span> <span id="v-val" style="color:#f1f5f9">12V</span></div>
+            <input type="range" id="v-slider" min="1" max="36" value="12" style="accent-color: #ef4444;">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#f59e0b">🚧 R1 (Top)</span> <span id="r1-val" style="color:#f1f5f9">10Ω</span></div>
+            <input type="range" id="r1-slider" min="1" max="50" value="10" style="accent-color: #f59e0b;">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#10b981">🚧 R2 (Bottom)</span> <span id="r2-val" style="color:#f1f5f9">20Ω</span></div>
+            <input type="range" id="r2-slider" min="1" max="50" value="20" style="accent-color: #10b981;">
+        </div>
+    </div>
+
+    <div class="math-box" id="math-output">
+        <!-- Math injects here -->
+    </div>
+</div>
+
+<script>
+    const vSlider = document.getElementById('v-slider');
+    const r1Slider = document.getElementById('r1-slider');
+    const r2Slider = document.getElementById('r2-slider');
+    
+    // UI Elements
+    const vVal = document.getElementById('v-val');
+    const r1Val = document.getElementById('r1-val');
+    const r2Val = document.getElementById('r2-val');
+    
+    // SVG Elements
+    const svgV = document.getElementById('svg-v-val');
+    const svgR1 = document.getElementById('svg-r1-val');
+    const svgR2 = document.getElementById('svg-r2-val');
+    const svgItot = document.getElementById('svg-itot-val');
+    const svgIout = document.getElementById('svg-iout-val');
+    const svgI1 = document.getElementById('svg-i1-val');
+    const svgI2 = document.getElementById('svg-i2-val');
+    
+    const mathOut = document.getElementById('math-output');
+    const feedbackOut = document.getElementById('feedback-output');
+
+    let prevV = 12, prevR1 = 10, prevR2 = 20;
+
+    function updateSim() {
+        const V = parseFloat(vSlider.value);
+        const R1 = parseFloat(r1Slider.value);
+        const R2 = parseFloat(r2Slider.value);
+
+        // Feedback Logic
+        if (V > prevV) feedbackOut.innerHTML = "⚡ ভোল্টেজ (সোর্স চাপ) বাড়ানো হয়েছে! তাই <strong>I_in</strong> এবং উভয় ব্রাঞ্চের কারেন্ট ফ্লো বেড়ে গেছে।";
+        else if (V < prevV) feedbackOut.innerHTML = "🔋 ভোল্টেজ কমানো হয়েছে, ফলে সার্কিটের মোট কারেন্ট ফ্লো কমে গেছে।";
+        else if (R1 > prevR1) feedbackOut.innerHTML = "🚧 <strong>R1</strong> এর রেজিস্ট্যান্স (বাধা) বাড়ানো হয়েছে, তাই ব্রাঞ্চ-১ (উপরের দিক) দিয়ে কারেন্ট ফ্লো কমে গেছে।";
+        else if (R1 < prevR1) feedbackOut.innerHTML = "✅ <strong>R1</strong> এর বাধা কমানো হয়েছে, ফলে ব্রাঞ্চ-১ দিয়ে আগের চেয়ে বেশি কারেন্ট ফ্লো হচ্ছে।";
+        else if (R2 > prevR2) feedbackOut.innerHTML = "🚧 <strong>R2</strong> এর রেজিস্ট্যান্স (বাধা) বাড়ানো হয়েছে, তাই ব্রাঞ্চ-২ (নিচের দিক) দিয়ে কারেন্ট ফ্লো কমে গেছে।";
+        else if (R2 < prevR2) feedbackOut.innerHTML = "✅ <strong>R2</strong> এর বাধা কমানো হয়েছে, ফলে ব্রাঞ্চ-২ দিয়ে আগের চেয়ে বেশি কারেন্ট ফ্লো হচ্ছে।";
+        
+        prevV = V; prevR1 = R1; prevR2 = R2;
+
+        // Calculate Current
+        const I1 = V / R1;
+        const I2 = V / R2;
+        const I_total = I1 + I2;
+
+        // Update Text for Sliders
+        vVal.textContent = V + "V"; 
+        r1Val.textContent = R1 + "Ω"; 
+        r2Val.textContent = R2 + "Ω";
+        
+        // Update SVG Text 
+        svgV.textContent = V + "V"; 
+        svgR1.textContent = "R1 = " + R1 + "Ω"; 
+        svgR2.textContent = "R2 = " + R2 + "Ω";
+
+        svgItot.textContent = "I_in = " + I_total.toFixed(2) + "A";
+        svgI1.textContent = "I1 = " + I1.toFixed(2) + "A";
+        svgI2.textContent = "I2 = " + I2.toFixed(2) + "A";
+        svgIout.textContent = "I_out = " + I_total.toFixed(2) + "A";
+
+        mathOut.innerHTML = `
+            <div style="margin-bottom:8px; color:#94a3b8">KCL Equation: <strong style="color:#fff">I<sub>in</sub> = I<sub>1</sub> + I<sub>2</sub> = I<sub>out</sub></strong></div>
+            <span style="color:#ef4444">I<sub>in</sub> = ${I_total.toFixed(2)}A</span> &nbsp;|&nbsp; 
+            <span style="color:#f59e0b">I<sub>1</sub> = ${I1.toFixed(2)}A</span> &nbsp;|&nbsp; 
+            <span style="color:#10b981">I<sub>2</sub> = ${I2.toFixed(2)}A</span> &nbsp;|&nbsp;
+            <span style="color:#3b82f6">I<sub>out</sub> = ${I_total.toFixed(2)}A</span>
+            <div style="margin-top:10px; font-weight:bold; color:#22d3ee; background:#0f172a; padding:8px; border-radius:6px; display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px;">
+                <span>Node A: ${I_total.toFixed(2)}A = ${I1.toFixed(2)}A + ${I2.toFixed(2)}A</span>
+                <span>Node B: ${I1.toFixed(2)}A + ${I2.toFixed(2)}A = ${I_total.toFixed(2)}A</span>
+            </div>
+        `;
+
+        // Update Animation Speed
+        const getDur = (I) => I > 0 ? Math.max(0.15, 2.5 / I) : 0;
+        
+        document.getElementById('anim-main-in').style.animationDuration = `${getDur(I_total)}s`;
+        document.getElementById('anim-main-out').style.animationDuration = `${getDur(I_total)}s`;
+        document.getElementById('anim-branch1').style.animationDuration = `${getDur(I1)}s`;
+        document.getElementById('anim-branch2').style.animationDuration = `${getDur(I2)}s`;
+    }
+
+    vSlider.addEventListener('input', updateSim);
+    r1Slider.addEventListener('input', updateSim);
+    r2Slider.addEventListener('input', updateSim);
+
+    // Initial load
+    setTimeout(updateSim, 100);
+</script>
+</body>
+</html>

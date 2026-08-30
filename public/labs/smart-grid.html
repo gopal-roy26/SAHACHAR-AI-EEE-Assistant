@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Load Shedding SCADA Lab V2</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Share+Tech+Mono&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #050811; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0b1221; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+            max-width: 1300px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #38bdf8; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 26px;}
+        
+        .lab-layout {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 1000px) { .lab-layout { grid-template-columns: 1fr; } }
+
+        /* Left Panel: Grid Map */
+        .grid-panel {
+            background: #0f172a; border-radius: 12px; border: 4px solid #1e293b; 
+            padding: 15px; position: relative;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column;
+        }
+        
+        .map-screen {
+            background: #020617; border-radius: 8px; border: 2px solid #1e293b; 
+            position: relative; overflow: hidden; height: 420px;
+            background-image: radial-gradient(rgba(56, 189, 248, 0.15) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        svg.map-svg { width: 100%; height: 100%; display: block; position: relative; z-index: 2;}
+
+        /* Animations & SVG Elements */
+        .wire { fill: none; stroke: #334155; stroke-width: 5; stroke-linejoin: round; transition: all 0.3s; }
+        .wire-active { stroke: #10b981; filter: drop-shadow(0 0 8px #10b981); }
+        .wire-warn { stroke: #f59e0b; filter: drop-shadow(0 0 8px #f59e0b); }
+        .wire-dead { stroke: #ef4444; opacity: 0.3; }
+        
+        .power-flow {
+            fill: none; stroke: #fff; stroke-width: 6; stroke-dasharray: 10 30;
+            opacity: 0; stroke-linecap: round;
+        }
+        .flow-active { opacity: 0.8; animation: flowAnim 1s linear infinite; }
+        @keyframes flowAnim { 0% { stroke-dashoffset: 40; } 100% { stroke-dashoffset: 0; } }
+
+        /* Breakers */
+        .breaker-arm { stroke: #38bdf8; stroke-width: 6; stroke-linecap: round; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s; }
+        .breaker-tripped { transform: rotate(-45deg); stroke: #ef4444; filter: drop-shadow(0 0 5px #ef4444); }
+        .breaker-node { fill: #1e293b; stroke: #38bdf8; stroke-width: 2; transition: all 0.3s; }
+        .breaker-node-tripped { stroke: #ef4444; }
+        
+        /* Spark Animation on Disconnect */
+        .spark { fill: #fff; opacity: 0; }
+        .spark-active { animation: flashSpark 0.4s ease-out; }
+        @keyframes flashSpark {
+            0% { opacity: 1; r: 5; fill: #fff; filter: drop-shadow(0 0 20px #fff); }
+            50% { fill: #f59e0b; r: 15; filter: drop-shadow(0 0 30px #f59e0b); }
+            100% { opacity: 0; r: 25; }
+        }
+
+        /* Load Boxes */
+        .load-box { transition: all 0.4s; }
+        .load-active { fill: rgba(16, 185, 129, 0.2); stroke: #10b981; stroke-width: 2; filter: drop-shadow(0 0 10px rgba(16,185,129,0.4));}
+        .load-dead { fill: rgba(239, 68, 68, 0.1); stroke: #ef4444; stroke-width: 2; filter: grayscale(100%); }
+        .load-text { font-family: 'Share Tech Mono', monospace; font-size: 14px; fill: #f1f5f9; font-weight: bold; text-anchor: middle; }
+        .load-prio { font-family: 'Inter'; font-size: 11px; fill: #94a3b8; text-anchor: middle; }
+
+        /* Generator Rotor (Fixed to spin perfectly inside) */
+        .rotor-spin { animation: spin 0.5s linear infinite; transform-origin: 85px 195px; }
+        .rotor-slow { animation: spin 2s linear infinite; transform-origin: 85px 195px; }
+        .rotor-dead { animation: none; stroke: #ef4444 !important; transform-origin: 85px 195px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        #gen-box { transition: all 0.3s; }
+        .gen-overload { stroke: #ef4444 !important; fill: rgba(239, 68, 68, 0.2); filter: drop-shadow(0 0 15px #ef4444); animation: shake 0.5s infinite; }
+        @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10%, 90% { transform: translate(-1px, -2px) rotate(-1deg); } 20%, 80% { transform: translate(-3px, 0px) rotate(1deg); } 30%, 50%, 70% { transform: translate(3px, 2px) rotate(0deg); } 40%, 60% { transform: translate(-3px, -1px) rotate(1deg); } }
+
+        /* NEW: Live Terminal Box */
+        .live-terminal {
+            background: #020617; border: 2px solid #1e293b; border-radius: 8px;
+            margin-top: 15px; height: 160px; display: flex; flex-direction: column;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+        }
+        .term-header {
+            background: #0f172a; padding: 8px 15px; border-bottom: 2px solid #1e293b;
+            font-family: 'Share Tech Mono', monospace; font-size: 13px; color: #38bdf8;
+            font-weight: bold; display: flex; justify-content: space-between; align-items: center;
+        }
+        .term-body {
+            padding: 10px 15px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 6px;
+            font-family: 'Share Tech Mono', monospace; font-size: 13px; text-align: left;
+        }
+        .log-line { animation: slideIn 0.3s ease-out; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;}
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .log-time { color: #94a3b8; margin-right: 5px; }
+        .log-info { color: #38bdf8; }
+        .log-warn { color: #f59e0b; }
+        .log-danger { color: #ef4444; font-weight: bold; }
+        .log-success { color: #10b981; }
+
+        /* Right Panel: SCADA Controls */
+        .scada-panel {
+            background: #0f172a; border-radius: 12px; border: 1px solid #1e293b;
+            padding: 20px; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Smart Mode Toggle */
+        .mode-toggle {
+            display: flex; justify-content: center; background: #020617; padding: 10px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;
+        }
+        .toggle-btn {
+            flex: 1; padding: 10px; border: none; font-family: 'Share Tech Mono', monospace; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s;
+        }
+        .btn-auto { border-radius: 6px 0 0 6px; background: #064e3b; color: #10b981; border: 1px solid #10b981; }
+        .btn-auto.active { background: #10b981; color: #022c22; box-shadow: 0 0 15px rgba(16,185,129,0.5); z-index: 2;}
+        .btn-manual { border-radius: 0 6px 6px 0; background: #450a0a; color: #ef4444; border: 1px solid #ef4444; }
+        .btn-manual.active { background: #ef4444; color: #450a0a; box-shadow: 0 0 15px rgba(239,68,68,0.5); z-index: 2;}
+
+        .status-banner {
+            font-family: 'Share Tech Mono', monospace; font-size: 22px; font-weight: bold;
+            padding: 15px; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px;
+            transition: all 0.3s ease; text-align: center; border: 2px solid transparent;
+        }
+        .status-normal { background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: #10b981; box-shadow: 0 0 15px rgba(16,185,129,0.3); }
+        .status-shedding { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border-color: #f59e0b; box-shadow: 0 0 20px rgba(245,158,11,0.5); animation: pulseWarn 1.5s infinite;}
+        .status-blackout { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: #ef4444; box-shadow: 0 0 25px rgba(239,68,68,0.7); animation: flashDanger 0.5s infinite alternate;}
+        
+        @keyframes pulseWarn { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        @keyframes flashDanger { 0% { background: rgba(239,68,68,0.4); } 100% { background: rgba(239,68,68,0.1); } }
+
+        /* Meters */
+        .meter-box {
+            background: rgba(2, 6, 23, 0.8); border: 1px solid #334155; border-radius: 8px;
+            padding: 12px; font-family: 'Share Tech Mono', monospace; display: flex; flex-direction: column; gap: 8px;
+        }
+        .meter-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; border-bottom: 1px dashed #1e293b; padding-bottom: 5px;}
+        .meter-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .meter-val { font-size: 18px; font-weight: bold; }
+        
+        /* Frequency Meter Specific */
+        .freq-display { font-size: 32px; color: #38bdf8; text-shadow: 0 0 10px #38bdf8; text-align: center; margin: 5px 0; transition: color 0.3s;}
+        .freq-danger { color: #ef4444; text-shadow: 0 0 15px #ef4444; }
+        .freq-warn { color: #f59e0b; text-shadow: 0 0 10px #f59e0b; }
+
+        /* Explanation Box */
+        .edu-box {
+            background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px;
+            padding: 12px; font-size: 13px; text-align: left; line-height: 1.5; color: #bae6fd;
+            transition: all 0.3s ease;
+        }
+
+        /* Controls */
+        .controls { background: #0a0d14; padding: 20px; border-radius: 12px; border: 1px solid #1e293b; text-align: left; display: flex; flex-direction: column; gap: 15px;}
+        .control-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600;}
+        input[type=range] { width: 100%; cursor: pointer; height: 6px; border-radius: 4px; outline: none; background: #334155; -webkit-appearance: none; margin-top: 5px;}
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; transition: transform 0.1s;}
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        
+        #gen-slider::-webkit-slider-thumb { background: #38bdf8; box-shadow: 0 0 10px #38bdf8;}
+        #dem-slider::-webkit-slider-thumb { background: #f59e0b; box-shadow: 0 0 10px #f59e0b;}
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2><span style="font-size: 1.2em;">⚡</span> Power Grid: Load Shedding vs Blackout</h2>
+    <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">কীভাবে স্মার্ট গ্রিড লোড শেডিং করে দেশকে ব্ল্যাকআউট থেকে বাঁচায়, তা লাইভ দেখুন!</p>
+
+    <div class="lab-layout">
+        <!-- LEFT: Grid Map -->
+        <div class="grid-panel">
+            <div class="map-screen">
+                <svg class="map-svg" viewBox="0 0 850 440">
+                    
+                    <defs>
+                        <!-- Clip path to keep rotor strictly inside the circle -->
+                        <clipPath id="rotor-clip">
+                            <circle cx="85" cy="195" r="28" />
+                        </clipPath>
+                    </defs>
+
+                    <!-- 1. Generator Station -->
+                    <rect id="gen-box" x="30" y="150" width="110" height="140" rx="10" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+                    
+                    <!-- Background Circle -->
+                    <circle cx="85" cy="195" r="30" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                    
+                    <!-- Clipped Rotor (Red & Blue Poles) -->
+                    <g id="rotor" class="rotor-spin" style="transform-origin: 85px 195px;" clip-path="url(#rotor-clip)">
+                        <path d="M 85 195 L 65.2 175.2 A 28 28 0 0 1 104.8 175.2 Z" fill="#ef4444"/>
+                        <path d="M 85 195 L 65.2 214.8 A 28 28 0 0 0 104.8 214.8 Z" fill="#38bdf8"/>
+                        <circle cx="85" cy="195" r="6" fill="#0f172a" stroke="#f1f5f9" stroke-width="2"/>
+                    </g>
+                    
+                    <text x="85" y="255" fill="#38bdf8" font-family="Share Tech Mono" font-size="16" font-weight="bold" text-anchor="middle">POWER PLANT</text>
+                    
+                    <!-- Dynamic Gen Load % Text -->
+                    <text x="85" y="275" font-family="Inter" font-size="12" font-weight="bold" text-anchor="middle" fill="#94a3b8">Gen Load: <tspan id="svg-gen-val" fill="#10b981">50.0%</tspan></text>
+
+                    <!-- Main Grid Busbar -->
+                    <line x1="140" y1="220" x2="220" y2="220" class="wire wire-active" id="w-main-out"/>
+                    <line x1="220" y1="80" x2="220" y2="350" class="wire wire-active" stroke-width="10" id="w-busbar"/>
+                    <text x="205" y="65" fill="#10b981" font-family="Share Tech Mono" font-size="14" font-weight="bold">MAIN BUS 230kV</text>
+
+                    <!-- ================= DISTRIBUTION ZONES ================= -->
+                    <!-- Zone 1: Hospital (Priority 1) -->
+                    <g transform="translate(220, 80)">
+                        <line x1="0" y1="0" x2="140" y2="0" class="wire wire-active" id="w-z1-1"/>
+                        <!-- Breaker 1 -->
+                        <circle cx="140" cy="0" r="7" class="breaker-node" id="bn1-1"/>
+                        <line id="brk1" x1="140" y1="0" x2="190" y2="0" class="breaker-arm" style="transform-origin: 140px 0px;"/>
+                        <circle cx="190" cy="0" r="7" class="breaker-node" id="bn1-2"/>
+                        <circle id="spark1" cx="190" cy="0" r="10" class="spark" />
+                        
+                        <line x1="190" y1="0" x2="300" y2="0" class="wire wire-active" id="w-z1-2"/>
+                        <path d="M 0 0 L 140 0 M 190 0 L 300 0" class="power-flow flow-active" id="flow-z1"/>
+                        
+                        <!-- Load Box -->
+                        <rect id="box1" x="300" y="-35" width="200" height="70" rx="8" class="load-box load-active"/>
+                        <text x="400" y="-12" font-family="Inter" font-size="14" fill="#f1f5f9" font-weight="800" text-anchor="middle">🏥 HOSPITAL</text>
+                        <text x="400" y="8" class="load-prio" fill="#ef4444">Priority 1 (Critical)</text>
+                        <text x="400" y="30" class="load-text" id="val-z1" fill="#38bdf8">20.0 MW</text>
+                    </g>
+
+                    <!-- Zone 2: Industry (Priority 2) -->
+                    <g transform="translate(220, 170)">
+                        <line x1="0" y1="0" x2="140" y2="0" class="wire wire-active" id="w-z2-1"/>
+                        <!-- Breaker 2 -->
+                        <circle cx="140" cy="0" r="7" class="breaker-node" id="bn2-1"/>
+                        <line id="brk2" x1="140" y1="0" x2="190" y2="0" class="breaker-arm" style="transform-origin: 140px 0px;"/>
+                        <circle cx="190" cy="0" r="7" class="breaker-node" id="bn2-2"/>
+                        <circle id="spark2" cx="190" cy="0" r="10" class="spark" />
+                        
+                        <line x1="190" y1="0" x2="300" y2="0" class="wire wire-active" id="w-z2-2"/>
+                        <path d="M 0 0 L 140 0 M 190 0 L 300 0" class="power-flow flow-active" id="flow-z2"/>
+                        
+                        <!-- Load Box -->
+                        <rect id="box2" x="300" y="-35" width="200" height="70" rx="8" class="load-box load-active"/>
+                        <text x="400" y="-12" font-family="Inter" font-size="14" fill="#f1f5f9" font-weight="800" text-anchor="middle">🏭 INDUSTRY</text>
+                        <text x="400" y="8" class="load-prio" fill="#f59e0b">Priority 2 (High)</text>
+                        <text x="400" y="30" class="load-text" id="val-z2" fill="#38bdf8">30.0 MW</text>
+                    </g>
+
+                    <!-- Zone 3: Residential (Priority 3) -->
+                    <g transform="translate(220, 260)">
+                        <line x1="0" y1="0" x2="140" y2="0" class="wire wire-active" id="w-z3-1"/>
+                        <!-- Breaker 3 -->
+                        <circle cx="140" cy="0" r="7" class="breaker-node" id="bn3-1"/>
+                        <line id="brk3" x1="140" y1="0" x2="190" y2="0" class="breaker-arm" style="transform-origin: 140px 0px;"/>
+                        <circle cx="190" cy="0" r="7" class="breaker-node" id="bn3-2"/>
+                        <circle id="spark3" cx="190" cy="0" r="10" class="spark" />
+                        
+                        <line x1="190" y1="0" x2="300" y2="0" class="wire wire-active" id="w-z3-2"/>
+                        <path d="M 0 0 L 140 0 M 190 0 L 300 0" class="power-flow flow-active" id="flow-z3"/>
+                        
+                        <!-- Load Box -->
+                        <rect id="box3" x="300" y="-35" width="200" height="70" rx="8" class="load-box load-active"/>
+                        <text x="400" y="-12" font-family="Inter" font-size="14" fill="#f1f5f9" font-weight="800" text-anchor="middle">🏠 RESIDENTIAL</text>
+                        <text x="400" y="8" class="load-prio" fill="#eab308">Priority 3 (Medium)</text>
+                        <text x="400" y="30" class="load-text" id="val-z3" fill="#38bdf8">30.0 MW</text>
+                    </g>
+
+                    <!-- Zone 4: Commercial (Priority 4) -->
+                    <g transform="translate(220, 350)">
+                        <line x1="0" y1="0" x2="140" y2="0" class="wire wire-active" id="w-z4-1"/>
+                        <!-- Breaker 4 -->
+                        <circle cx="140" cy="0" r="7" class="breaker-node" id="bn4-1"/>
+                        <line id="brk4" x1="140" y1="0" x2="190" y2="0" class="breaker-arm" style="transform-origin: 140px 0px;"/>
+                        <circle cx="190" cy="0" r="7" class="breaker-node" id="bn4-2"/>
+                        <circle id="spark4" cx="190" cy="0" r="10" class="spark" />
+                        
+                        <line x1="190" y1="0" x2="300" y2="0" class="wire wire-active" id="w-z4-2"/>
+                        <path d="M 0 0 L 140 0 M 190 0 L 300 0" class="power-flow flow-active" id="flow-z4"/>
+                        
+                        <!-- Load Box -->
+                        <rect id="box4" x="300" y="-35" width="200" height="70" rx="8" class="load-box load-active"/>
+                        <text x="400" y="-12" font-family="Inter" font-size="14" fill="#f1f5f9" font-weight="800" text-anchor="middle">🏬 COMMERCIAL</text>
+                        <text x="400" y="8" class="load-prio" fill="#22c55e">Priority 4 (Low)</text>
+                        <text x="400" y="30" class="load-text" id="val-z4" fill="#38bdf8">20.0 MW</text>
+                    </g>
+
+                </svg>
+            </div>
+            
+            <!-- NEW: Live System Event Logger -->
+            <div class="live-terminal">
+                <div class="term-header">
+                    <span>> LIVE SYSTEM EVENT LOG</span>
+                    <span style="color:#10b981;">● RUNNING</span>
+                </div>
+                <div class="term-body" id="term-body">
+                    <!-- Logs will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: SCADA Controls -->
+        <div class="scada-panel">
+            
+            <div class="mode-toggle">
+                <button id="btn-auto" class="toggle-btn btn-auto active">🛡️ SMART GRID (Auto)</button>
+                <button id="btn-manual" class="toggle-btn btn-manual">⚠️ MANUAL (No Protection)</button>
+            </div>
+
+            <div id="sys-status" class="status-banner status-normal">
+                SYSTEM NORMAL
+            </div>
+
+            <div class="meter-box">
+                <div style="text-align:center; color:#94a3b8; font-size:12px; font-weight:bold;">GRID FREQUENCY</div>
+                <div id="freq-meter" class="freq-display">50.00 Hz</div>
+            </div>
+
+            <div class="meter-box">
+                <div class="meter-row">
+                    <span style="color:#38bdf8">Supply:</span>
+                    <span id="txt-supply" class="meter-val" style="color:#38bdf8">100 MW</span>
+                </div>
+                <div class="meter-row">
+                    <span style="color:#f59e0b">Demand:</span>
+                    <span id="txt-demand" class="meter-val" style="color:#f59e0b">100 MW</span>
+                </div>
+                <div class="meter-row" style="border:none;">
+                    <span style="color:#10b981">Connected:</span>
+                    <span id="txt-active" class="meter-val" style="color:#10b981">100 MW</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-header">
+                    <span style="color:#38bdf8">⚙️ Supply (Gen Capacity)</span> 
+                </div>
+                <input type="range" id="gen-slider" min="50" max="150" value="100">
+                
+                <div class="control-header" style="margin-top:10px;">
+                    <span style="color:#f59e0b">🏢 Demand (City Load)</span> 
+                </div>
+                <input type="range" id="dem-slider" min="20" max="150" value="100">
+            </div>
+
+            <div class="edu-box" id="edu-box">
+                💡 <strong>স্মার্ট গ্রিড অন:</strong> ডিমান্ড বেশি হলে গ্রিডকে বাঁচাতে সিস্টেম স্বয়ংক্রিয়ভাবে কম-গুরুত্বপূর্ণ লাইন ট্রিপ (Disconnect) করে দেবে।
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // Inputs
+    const genSlider = document.getElementById('gen-slider');
+    const demSlider = document.getElementById('dem-slider');
+    
+    // Toggle Buttons
+    const btnAuto = document.getElementById('btn-auto');
+    const btnManual = document.getElementById('btn-manual');
+    let isAutoMode = true;
+
+    // Meters & UI
+    const txtSupply = document.getElementById('txt-supply');
+    const txtDemand = document.getElementById('txt-demand');
+    const txtActive = document.getElementById('txt-active');
+    const sysStatus = document.getElementById('sys-status');
+    const freqMeter = document.getElementById('freq-meter');
+    const eduBox = document.getElementById('edu-box');
+    const termBody = document.getElementById('term-body'); // NEW
+    
+    // SVG Elements
+    const svgGenVal = document.getElementById('svg-gen-val');
+    const rotor = document.getElementById('rotor');
+    const genBox = document.getElementById('gen-box');
+    const wMainOut = document.getElementById('w-main-out');
+    const wBusbar = document.getElementById('w-busbar');
+    
+    // Zone Definitions
+    const zones = [
+        { id: 1, ratio: 0.20, name: "HOSPITAL", brk: document.getElementById('brk1'), bn1: document.getElementById('bn1-1'), bn2: document.getElementById('bn1-2'), spark: document.getElementById('spark1'), box: document.getElementById('box1'), w1: document.getElementById('w-z1-1'), w2: document.getElementById('w-z1-2'), flow: document.getElementById('flow-z1'), valText: document.getElementById('val-z1') },
+        { id: 2, ratio: 0.30, name: "INDUSTRY", brk: document.getElementById('brk2'), bn1: document.getElementById('bn2-1'), bn2: document.getElementById('bn2-2'), spark: document.getElementById('spark2'), box: document.getElementById('box2'), w1: document.getElementById('w-z2-1'), w2: document.getElementById('w-z2-2'), flow: document.getElementById('flow-z2'), valText: document.getElementById('val-z2') },
+        { id: 3, ratio: 0.30, name: "RESIDENTIAL", brk: document.getElementById('brk3'), bn1: document.getElementById('bn3-1'), bn2: document.getElementById('bn3-2'), spark: document.getElementById('spark3'), box: document.getElementById('box3'), w1: document.getElementById('w-z3-1'), w2: document.getElementById('w-z3-2'), flow: document.getElementById('flow-z3'), valText: document.getElementById('val-z3') },
+        { id: 4, ratio: 0.20, name: "COMMERCIAL", brk: document.getElementById('brk4'), bn1: document.getElementById('bn4-1'), bn2: document.getElementById('bn4-2'), spark: document.getElementById('spark4'), box: document.getElementById('box4'), w1: document.getElementById('w-z4-1'), w2: document.getElementById('w-z4-2'), flow: document.getElementById('flow-z4'), valText: document.getElementById('val-z4') }
+    ];
+
+    let prevStates = { 1: true, 2: true, 3: true, 4: true }; 
+    let isBlackout = false;
+    let freqValue = 50.00;
+
+    // NEW: Logging Function
+    function addLog(msg, type="info") {
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+        const newLog = document.createElement('div');
+        newLog.className = `log-line log-${type}`;
+        newLog.innerHTML = `<span class="log-time">[${timeStr}]</span> ${msg}`;
+        termBody.appendChild(newLog);
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+    
+    addLog("SCADA System Initialized. Grid Stable.", "success");
+
+    // NEW: Log Slider Changes
+    genSlider.addEventListener('change', (e) => {
+        if(!isBlackout) addLog(`[COMMAND] Gen Supply adjusted to ${parseFloat(e.target.value).toFixed(1)} MW`, "info");
+    });
+    demSlider.addEventListener('change', (e) => {
+        if(!isBlackout) addLog(`[SENSOR] City Demand shifted to ${parseFloat(e.target.value).toFixed(1)} MW`, "info");
+    });
+
+    // Toggle Handlers
+    btnAuto.addEventListener('click', () => {
+        isAutoMode = true;
+        btnAuto.classList.add('active');
+        btnManual.classList.remove('active');
+        eduBox.innerHTML = `💡 <strong>স্মার্ট গ্রিড অন:</strong> ডিমান্ড বেশি হলে গ্রিডকে বাঁচাতে সিস্টেম স্বয়ংক্রিয়ভাবে কম-গুরুত্বপূর্ণ লাইন ট্রিপ (Disconnect) করে দেবে।`;
+        eduBox.style.borderColor = "rgba(56, 189, 248, 0.3)";
+        eduBox.style.color = "#bae6fd";
+        isBlackout = false;
+        addLog(`[SYSTEM] SMART GRID Protection ENABLED. Auto-Shedding active.`, "success");
+        updateGrid();
+    });
+
+    btnManual.addEventListener('click', () => {
+        isAutoMode = false;
+        btnManual.classList.add('active');
+        btnAuto.classList.remove('active');
+        eduBox.innerHTML = `⚠️ <strong>স্মার্ট গ্রিড অফ (Manual):</strong> এখন কোনো লোড শেডিং হবে না। কিন্তু ডিমান্ড বেশি হলে ফ্রিকোয়েন্সি ড্রপ করে পুরো সিস্টেম ব্ল্যাকআউট হয়ে যেতে পারে!`;
+        eduBox.style.borderColor = "rgba(239, 68, 68, 0.5)";
+        eduBox.style.color = "#fca5a5";
+        addLog(`[SYSTEM] MANUAL MODE ENABLED. Protection disabled. Grid at risk!`, "warn");
+        updateGrid();
+    });
+
+    function setZoneState(zone, isON, loadVal) {
+        zone.valText.textContent = loadVal.toFixed(1) + " MW";
+        
+        if(isON) {
+            zone.brk.classList.remove('breaker-tripped');
+            zone.bn1.classList.remove('breaker-node-tripped');
+            zone.bn2.classList.remove('breaker-node-tripped');
+            zone.box.classList.remove('load-dead');
+            zone.box.classList.add('load-active');
+            zone.w1.classList.replace('wire-dead', 'wire-active');
+            zone.w2.classList.replace('wire-dead', 'wire-active');
+            zone.flow.style.display = "block";
+        } else {
+            zone.brk.classList.add('breaker-tripped');
+            zone.bn1.classList.add('breaker-node-tripped');
+            zone.bn2.classList.add('breaker-node-tripped');
+            zone.box.classList.remove('load-active');
+            zone.box.classList.add('load-dead');
+            zone.w1.classList.replace('wire-active', 'wire-dead');
+            zone.w2.classList.replace('wire-active', 'wire-dead');
+            zone.flow.style.display = "none";
+            zone.valText.textContent = "0.0 MW";
+        }
+
+        // Trigger Spark Animation and Log exactly when state goes from ON to OFF
+        if(isON === false && prevStates[zone.id] === true) {
+            zone.spark.classList.remove('spark-active');
+            void zone.spark.offsetWidth; // trigger reflow
+            zone.spark.classList.add('spark-active');
+            addLog(`[RELAY TRIP] ${zone.name} disconnected to save the grid!`, "warn");
+        } else if (isON === true && prevStates[zone.id] === false) {
+            addLog(`[RELAY CLOSE] ${zone.name} power restored.`, "success");
+        }
+        
+        prevStates[zone.id] = isON;
+    }
+
+    function triggerBlackoutUI() {
+        if(!isBlackout) {
+            addLog(`[CRITICAL] Frequency < 47.5Hz. SYSTEM COLLAPSE!`, "danger");
+            addLog(`[CRITICAL] GENERATOR SHUTDOWN. TOTAL BLACKOUT!`, "danger");
+        }
+        isBlackout = true;
+        // Turn off everything
+        zones.forEach(z => setZoneState(z, false, 0));
+        txtActive.innerText = "0.0 MW";
+        freqValue = 0.00;
+        freqMeter.innerText = "0.00 Hz";
+        
+        // Generator dead UI
+        rotor.className.baseVal = "rotor-dead";
+        genBox.classList.add('gen-overload');
+        wMainOut.classList.replace('wire-active', 'wire-dead');
+        wBusbar.classList.replace('wire-active', 'wire-dead');
+
+        // Status
+        sysStatus.className = "status-banner status-blackout";
+        sysStatus.innerText = "TOTAL BLACKOUT!";
+        freqMeter.className = "freq-display freq-danger";
+    }
+
+    function resetGeneratorUI() {
+        rotor.className.baseVal = "rotor-spin";
+        genBox.classList.remove('gen-overload');
+        wMainOut.classList.replace('wire-dead', 'wire-active');
+        wBusbar.classList.replace('wire-dead', 'wire-active');
+    }
+
+    function updateGrid() {
+        const supply = parseFloat(genSlider.value);
+        const demand = parseFloat(demSlider.value);
+        
+        txtSupply.innerText = supply + " MW";
+        
+        // Calculate and update dynamic Gen Load percentage
+        let activeDemandCalc = demand;
+        if (isAutoMode) {
+            if (activeDemandCalc > supply) activeDemandCalc -= (demand * 0.20);
+            if (activeDemandCalc > supply) activeDemandCalc -= (demand * 0.30);
+            if (activeDemandCalc > supply) activeDemandCalc -= (demand * 0.30);
+            if (activeDemandCalc > supply) activeDemandCalc -= (demand * 0.20);
+        }
+        
+        let capPct = supply > 0 ? (activeDemandCalc / supply) * 100 : 0;
+        svgGenVal.textContent = capPct.toFixed(1) + "%";
+        
+        if(capPct > 100) {
+            svgGenVal.setAttribute("fill", "#ef4444"); // Red if overloaded
+        } else if (capPct > 80) {
+            svgGenVal.setAttribute("fill", "#f59e0b"); // Warning
+        } else {
+            svgGenVal.setAttribute("fill", "#10b981"); // Safe
+        }
+
+        txtDemand.innerText = demand + " MW";
+
+        zones.forEach(z => z.demand = demand * z.ratio);
+
+        let activeDemand = demand;
+        let states = { 1: true, 2: true, 3: true, 4: true };
+
+        if (isAutoMode) {
+            isBlackout = false;
+            resetGeneratorUI();
+            
+            // SMART GRID LOGIC: Shed load to save grid
+            if (activeDemand > supply) { states[4] = false; activeDemand -= zones[3].demand; }
+            if (activeDemand > supply) { states[3] = false; activeDemand -= zones[2].demand; }
+            if (activeDemand > supply) { states[2] = false; activeDemand -= zones[1].demand; }
+            if (activeDemand > supply) { states[1] = false; activeDemand -= zones[0].demand; }
+
+            zones.forEach(z => setZoneState(z, states[z.id], z.demand));
+            txtActive.innerText = activeDemand.toFixed(1) + " MW";
+
+            // Frequency Stable since shedding saved it
+            if (!states[4] || !states[3] || !states[2]) {
+                freqValue = 49.8; // Slight drop but stable
+                sysStatus.className = "status-banner status-shedding";
+                sysStatus.innerText = "LOAD SHEDDING ACTIVE";
+                freqMeter.className = "freq-display freq-warn";
+            } else {
+                freqValue = 50.0;
+                sysStatus.className = "status-banner status-normal";
+                sysStatus.innerText = "SYSTEM NORMAL";
+                freqMeter.className = "freq-display";
+            }
+
+            if(states[1] === false) {
+                 triggerBlackoutUI(); // Even auto mode couldn't save it
+            }
+
+        } else {
+            // MANUAL MODE LOGIC: No Shedding, but Grid collapses if Overloaded
+            if (demand > supply) {
+                // Formula: freq drops proportional to overload
+                freqValue = 50.0 - ((demand - supply) * 0.08);
+                
+                if (freqValue <= 47.5) {
+                    // Under-frequency trip! System collapses.
+                    triggerBlackoutUI();
+                    return;
+                } else {
+                    // Overloaded but holding on (Warning)
+                    isBlackout = false;
+                    resetGeneratorUI();
+                    rotor.className.baseVal = "rotor-slow"; // Generator struggling
+                    genBox.classList.add('gen-overload'); // Shake effect
+                    
+                    zones.forEach(z => setZoneState(z, true, z.demand));
+                    txtActive.innerText = activeDemand.toFixed(1) + " MW";
+                    
+                    sysStatus.className = "status-banner status-shedding";
+                    sysStatus.innerText = "WARNING: GRID OVERLOAD!";
+                    freqMeter.className = "freq-display freq-danger";
+                }
+            } else {
+                // Normal
+                isBlackout = false;
+                resetGeneratorUI();
+                zones.forEach(z => setZoneState(z, true, z.demand));
+                txtActive.innerText = activeDemand.toFixed(1) + " MW";
+                freqValue = 50.0;
+                sysStatus.className = "status-banner status-normal";
+                sysStatus.innerText = "SYSTEM NORMAL";
+                freqMeter.className = "freq-display";
+            }
+        }
+        
+        if(!isBlackout) freqMeter.innerText = freqValue.toFixed(2) + " Hz";
+    }
+
+    genSlider.addEventListener('input', updateGrid);
+    demSlider.addEventListener('input', updateGrid);
+
+    // Initial call
+    updateGrid();
+    
+    // Fluctuate frequency slightly every 500ms for realism
+    setInterval(() => {
+        if(!isBlackout) {
+            let variance = (Math.random() * 0.06 - 0.03);
+            let displayFreq = freqValue + variance;
+            freqMeter.innerText = displayFreq.toFixed(2) + " Hz";
+        }
+    }, 500);
+
+</script>
+</body>
+</html>

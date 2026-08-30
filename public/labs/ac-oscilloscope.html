@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium AC Oscilloscope Lab Final</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Share+Tech+Mono&display=swap');
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #050811; color: #f1f5f9;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+        }
+        .container {
+            background: #0b1221; border: 1px solid #1e293b; border-radius: 16px;
+            padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+            max-width: 1300px; width: 100%; text-align: center;
+        }
+        h2 { margin-top: 0; color: #38bdf8; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 28px;}
+        
+        /* Main Layout Grid - Much Bigger Scope, Smaller Right Panel */
+        .lab-layout {
+            display: grid;
+            grid-template-columns: 7fr 2.5fr; /* 70% Scope, ~30% Side Panel */
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1000px) { .lab-layout { grid-template-columns: 1fr; } }
+
+        /* Oscilloscope Screen */
+        .scope-wrapper {
+            background: #0f172a; border-radius: 12px; border: 4px solid #334155; 
+            padding: 15px; position: relative;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column;
+        }
+        .scope-screen {
+            background: #020617; border-radius: 8px; border: 2px solid #1e293b; 
+            position: relative; overflow: hidden; cursor: crosshair; flex-grow: 1;
+            box-shadow: inset 0 0 80px rgba(16, 185, 129, 0.1);
+        }
+        .scope-screen:active { cursor: grabbing; }
+        
+        .scope-grid {
+            background-image: 
+                linear-gradient(rgba(16, 185, 129, 0.25) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(16, 185, 129, 0.25) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: left center;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        }
+        
+        .scope-grid::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1.5px; background: rgba(16, 185, 129, 0.9); z-index: 1;}
+        .scope-grid::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1.5px; background: rgba(16, 185, 129, 0.9); z-index: 1;}
+        
+        .scanlines {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            background-size: 100% 4px; z-index: 10; pointer-events: none; opacity: 0.5;
+        }
+
+        /* Scope is taller now */
+        svg.scope-svg { width: 100%; height: 100%; min-height: 450px; display: block; position: relative; z-index: 2;}
+        
+        /* OSD Text */
+        .osd-text {
+            position: absolute; font-family: 'Share Tech Mono', monospace; font-size: 13px;
+            color: #10b981; z-index: 5; pointer-events: none; 
+            background: rgba(2, 6, 23, 0.7); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.2);
+        }
+        .osd-top-left { top: 15px; left: 15px; }
+        .osd-top-right { top: 15px; right: 15px; }
+        .osd-bottom-left { bottom: 15px; left: 15px; }
+        .osd-bottom-right { bottom: 15px; right: 15px; font-weight: bold; font-size: 14px;}
+        
+        /* Cursors */
+        .measure-cursor-hover { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 1px dashed rgba(255, 255, 255, 0.5); pointer-events: none; z-index: 11; display: none;}
+        .measure-cursor-pinned { position: absolute; top: 0; bottom: 0; width: 2px; background: #e2e8f0; pointer-events: none; z-index: 12; display: none; box-shadow: 0 0 10px #ffffff;}
+        .measure-tooltip {
+            position: absolute; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8;
+            color: #fff; font-family: 'Share Tech Mono', monospace; font-size: 13px;
+            padding: 8px 12px; border-radius: 6px; pointer-events: none; z-index: 13; display: none;
+            white-space: nowrap; transform: translate(-50%, -110%); box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+        }
+        .measure-tooltip::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 6px 6px 0; border-style: solid; border-color: #38bdf8 transparent transparent transparent;}
+
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;}
+        .legend { display: flex; gap: 15px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.3); padding: 8px 15px; border-radius: 8px; border: 1px solid #1e293b;}
+        .leg-v { color: #06b6d4; display: flex; align-items: center; gap: 8px; }
+        .leg-i { color: #f59e0b; display: flex; align-items: center; gap: 8px; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; }
+
+        .btn-group { display: flex; gap: 10px;}
+        .btn {
+            border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; 
+            font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-run { background: #10b981; color: #022c22; box-shadow: 0 0 15px rgba(16,185,129,0.3); }
+        .btn-run:hover { background: #059669; }
+        .btn-stop { background: #ef4444; color: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.3); }
+        .btn-stop:hover { background: #dc2626; }
+        .btn-reset { background: #334155; color: #f8fafc; border: 1px solid #475569; }
+        .btn-reset:hover { background: #475569; }
+        .btn-xy { background: #a855f7; color: #fff; box-shadow: 0 0 15px rgba(168,85,247,0.3); }
+        .btn-xy:hover { background: #9333ea; }
+        .btn-clear { background: #f43f5e; color: #fff; display: none;}
+
+        /* Stats & Phasor Panel */
+        .side-panel {
+            background: #0f172a; border-radius: 12px; border: 1px solid #1e293b;
+            padding: 20px; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+        
+        .phasor-box {
+            background: #020617; border-radius: 8px; border: 1px solid #1e293b;
+            padding: 10px; position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        }
+        .phasor-box h4 { margin: 0; position: absolute; top: 12px; left: 15px; font-size: 13px; color: #94a3b8; font-family: 'Share Tech Mono', monospace; z-index: 10;}
+        
+        /* Live Equation Panel */
+        .equation-box {
+            background: rgba(2, 6, 23, 0.8); border: 1px solid #38bdf8; border-radius: 8px;
+            padding: 15px; text-align: left; font-family: 'Share Tech Mono', monospace; font-size: 13px; 
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+        }
+        .eq-group { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #1e293b;}
+        .eq-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0;}
+        .eq-line { margin-bottom: 6px; }
+
+        /* Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px; text-align: left; background: #0a0d14; padding: 25px; border-radius: 12px; border: 1px solid #1e293b;}
+        .control-group { display: flex; flex-direction: column; gap: 12px; }
+        .control-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600;}
+        input[type=range] { width: 100%; cursor: pointer; height: 6px; border-radius: 4px; outline: none; background: #334155; -webkit-appearance: none;}
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; transition: transform 0.1s;}
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        
+        #vm-slider::-webkit-slider-thumb { background: #06b6d4; box-shadow: 0 0 10px #06b6d4;}
+        #im-slider::-webkit-slider-thumb { background: #f59e0b; box-shadow: 0 0 10px #f59e0b;}
+        #f-slider::-webkit-slider-thumb { background: #a855f7; box-shadow: 0 0 10px #a855f7;}
+        #phase-slider::-webkit-slider-thumb { background: #ef4444; box-shadow: 0 0 10px #ef4444;}
+
+        .feedback-box { margin-top: 20px; padding: 18px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; transition: all 0.3s ease; box-shadow: 0 5px 20px rgba(0,0,0,0.4);}
+        .feedback-resistive { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; }
+        .feedback-inductive { background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; }
+        .feedback-capacitive { background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.4); color: #22d3ee; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2><span style="font-size: 1.2em;">📈</span> Premium AC Oscilloscope</h2>
+    <p style="color:#94a3b8; font-size:14px; margin-bottom:25px;">Live Phasor Angle, Real-time Power Equations এবং X-Y (Lissajous) Mode</p>
+
+    <div class="lab-layout">
+        <!-- LEFT: Oscilloscope (Made Bigger) -->
+        <div class="scope-wrapper">
+            <div class="toolbar">
+                <div class="legend">
+                    <div class="leg-v"><div class="dot" style="background:#06b6d4; box-shadow: 0 0 10px #06b6d4;"></div> Voltage</div>
+                    <div class="leg-i"><div class="dot" style="background:#f59e0b; box-shadow: 0 0 10px #f59e0b;"></div> Current</div>
+                </div>
+                <div class="btn-group">
+                    <button id="xy-btn" class="btn btn-xy">⏚ X-Y Mode</button>
+                    <button id="clear-btn" class="btn btn-clear">✕ Clear</button>
+                    <button id="reset-btn" class="btn btn-reset">↺ Reset</button>
+                    <button id="run-btn" class="btn btn-run">⏸ PAUSE</button>
+                </div>
+            </div>
+
+            <div class="scope-screen" id="scope-screen">
+                <div class="scanlines"></div>
+                <div class="osd-text osd-top-left" id="osd-ch1">CH1: 50V/div</div>
+                <div class="osd-text osd-top-right" id="osd-ch2">CH2: 50A/div</div>
+                <div class="osd-text osd-bottom-left" id="osd-time">Time: 2.5ms/div</div>
+                <div class="osd-text osd-bottom-right" id="osd-status" style="color: #10b981;">▶ RUNNING</div>
+
+                <!-- Cursors -->
+                <div class="measure-cursor-hover" id="measure-cursor-hover"></div>
+                <div class="measure-cursor-pinned" id="measure-cursor-pinned"></div>
+                <div class="measure-tooltip" id="measure-tooltip"></div>
+
+                <div class="scope-grid" id="scope-grid-bg"></div>
+                <!-- Increased min-height to make it taller -->
+                <svg class="scope-svg" id="osc-svg" viewBox="0 0 800 450" preserveAspectRatio="none">
+                    <defs>
+                        <filter id="glow-v"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        <filter id="glow-i"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        <filter id="glow-xy"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                    </defs>
+                    
+                    <!-- Axis Labels & Ticks (YT Mode) -->
+                    <g id="yt-axes" fill="rgba(16, 185, 129, 0.9)" font-family="Share Tech Mono" font-size="12">
+                        <text x="8" y="30" fill="#38bdf8" font-weight="bold" font-family="Inter">Amp (V/A) 🡑</text>
+                        <text x="8" y="129">+100</text>
+                        <text x="8" y="179">+50</text>
+                        <text x="8" y="230">0</text>
+                        <text x="8" y="279">-50</text>
+                        <text x="8" y="329">-100</text>
+                        
+                        <text x="105" y="245">5ms</text>
+                        <text x="205" y="245">10ms</text>
+                        <text x="305" y="245">15ms</text>
+                        <text x="405" y="245">20ms</text>
+                        <text x="505" y="245">25ms</text>
+                        <text x="605" y="245">30ms</text>
+                        <text x="690" y="245" fill="#38bdf8" font-weight="bold" font-family="Inter">Time (ms) 🡒</text>
+                    </g>
+                    
+                    <g id="yt-ticks" stroke="rgba(16, 185, 129, 0.6)" stroke-width="2">
+                        <line x1="50" y1="222" x2="50" y2="228"/> <line x1="100" y1="220" x2="100" y2="230"/>
+                        <line x1="150" y1="222" x2="150" y2="228"/> <line x1="200" y1="220" x2="200" y2="230"/>
+                        <line x1="250" y1="222" x2="250" y2="228"/> <line x1="300" y1="220" x2="300" y2="230"/>
+                        <line x1="350" y1="222" x2="350" y2="228"/> <line x1="400" y1="220" x2="400" y2="230"/>
+                        <line x1="450" y1="222" x2="450" y2="228"/> <line x1="500" y1="220" x2="500" y2="230"/>
+                        <line x1="550" y1="222" x2="550" y2="228"/> <line x1="600" y1="220" x2="600" y2="230"/>
+                        <line x1="650" y1="222" x2="650" y2="228"/> <line x1="700" y1="220" x2="700" y2="230"/>
+                        <line x1="750" y1="222" x2="750" y2="228"/>
+                        <line x1="397" y1="125" x2="403" y2="125"/> <line x1="397" y1="175" x2="403" y2="175"/>
+                        <line x1="397" y1="275" x2="403" y2="275"/> <line x1="397" y1="325" x2="403" y2="325"/>
+                    </g>
+
+                    <!-- Waveforms -->
+                    <path id="wave-v" fill="none" stroke="#06b6d4" stroke-width="4" filter="url(#glow-v)" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path id="wave-i" fill="none" stroke="#f59e0b" stroke-width="4" filter="url(#glow-i)" stroke-linecap="round" stroke-linejoin="round"/>
+                    
+                    <!-- XY Mode Lissajous -->
+                    <path id="wave-xy" fill="none" stroke="#a855f7" stroke-width="4" filter="url(#glow-xy)" stroke-linecap="round" stroke-linejoin="round" display="none"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- RIGHT: Stats & Phasor (Made Smaller) -->
+        <div class="side-panel">
+            <div class="phasor-box">
+                <h4>Phasor Diagram</h4>
+                <!-- Min height reduced so it looks smaller in proportion to the big scope -->
+                <svg viewBox="-150 -150 300 300" style="width: 100%; height: 100%; min-height:200px;">
+                    <defs>
+                        <marker id="arrow-v" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#06b6d4" />
+                        </marker>
+                        <marker id="arrow-i" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
+                        </marker>
+                    </defs>
+                    <!-- Polar Grid Lines -->
+                    <circle cx="0" cy="0" r="120" stroke="#1e293b" stroke-width="1.5" fill="none"/>
+                    <circle cx="0" cy="0" r="80" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4" fill="none"/>
+                    <circle cx="0" cy="0" r="40" stroke="#1e293b" stroke-width="1" stroke-dasharray="2 2" fill="none"/>
+                    
+                    <line x1="-130" y1="0" x2="130" y2="0" stroke="#1e293b" stroke-width="1.5"/>
+                    <line x1="0" y1="-130" x2="0" y2="130" stroke="#1e293b" stroke-width="1.5"/>
+                    
+                    <!-- Degree Labels -->
+                    <text x="125" y="-5" fill="#64748b" font-family="Share Tech Mono" font-size="12">0°</text>
+                    <text x="5" y="-125" fill="#64748b" font-family="Share Tech Mono" font-size="12">90°</text>
+                    <text x="-145" y="-5" fill="#64748b" font-family="Share Tech Mono" font-size="12">180°</text>
+                    <text x="5" y="135" fill="#64748b" font-family="Share Tech Mono" font-size="12">270°</text>
+                    
+                    <!-- Live Phasor Vectors -->
+                    <line id="phasor-v" x1="0" y1="0" x2="110" y2="0" stroke="#06b6d4" stroke-width="3.5" marker-end="url(#arrow-v)"/>
+                    <line id="phasor-i" x1="0" y1="0" x2="80" y2="0" stroke="#f59e0b" stroke-width="3.5" marker-end="url(#arrow-i)"/>
+                    
+                    <!-- Phasor Labels -->
+                    <text id="label-v" font-family="Inter" font-weight="bold" font-size="15" fill="#06b6d4">V</text>
+                    <text id="label-i" font-family="Inter" font-weight="bold" font-size="15" fill="#f59e0b">I</text>
+
+                    <!-- Angle Arc & Text -->
+                    <path id="phasor-arc" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="3 2"/>
+                    <text id="phasor-angle-val" font-family="Inter" font-weight="bold" font-size="14" fill="#ef4444" text-anchor="middle" dominant-baseline="middle"></text>
+                </svg>
+            </div>
+            
+            <div class="equation-box">
+                <div style="color:#94a3b8; margin-bottom:12px; border-bottom:1px solid #1e293b; padding-bottom:6px; font-weight:bold; display:flex; justify-content:space-between;">
+                    <span>Live Equations</span>
+                    <span id="eq-t" style="color:#a855f7;">T = 20ms</span>
+                </div>
+                
+                <div class="eq-group">
+                    <div class="eq-line" id="eq-w">ω = 2πf = 314.16 rad/s</div>
+                    <div class="eq-line" style="color:#06b6d4" id="eq-v">v(t) = 100 sin(314.16t) V</div>
+                    <div class="eq-line" style="color:#f59e0b" id="eq-i">i(t) = 80 sin(314.16t) A</div>
+                </div>
+
+                <div class="eq-group" style="border:none;">
+                    <div class="eq-line" style="color:#34d399;" id="eq-p">Active (P) = VI cosθ = <strong>4000 W</strong></div>
+                    <div class="eq-line" style="color:#fbbf24;" id="eq-q">Reactive (Q) = VI sinθ = <strong>0 VAR</strong></div>
+                    <div class="eq-line" style="color:#38bdf8;" id="eq-s">Apparent (S) = VI = <strong>4000 VA</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls (4 Columns) -->
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-header"><span style="color:#06b6d4">Voltage Peak (V_m)</span> <span id="vm-val" style="color:#f1f5f9">100 V</span></div>
+            <input type="range" id="vm-slider" min="10" max="140" value="100">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#f59e0b">Current Peak (I_m)</span> <span id="im-val" style="color:#f1f5f9">80 A</span></div>
+            <input type="range" id="im-slider" min="10" max="140" value="80">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#a855f7">Frequency (Hz)</span> <span id="f-val" style="color:#f1f5f9">50 Hz</span></div>
+            <input type="range" id="f-slider" min="10" max="100" value="50">
+        </div>
+        <div class="control-group">
+            <div class="control-header"><span style="color:#ef4444">Phase Angle (θ)</span> <span id="phase-val" style="color:#f1f5f9">0°</span></div>
+            <input type="range" id="phase-slider" min="-90" max="90" value="0">
+        </div>
+    </div>
+
+    <div id="feedback-output" class="feedback-box feedback-resistive">
+        লোড হচ্ছে...
+    </div>
+</div>
+
+<script>
+    const vmSlider = document.getElementById('vm-slider');
+    const imSlider = document.getElementById('im-slider');
+    const fSlider = document.getElementById('f-slider');
+    const phaseSlider = document.getElementById('phase-slider');
+    
+    const vmVal = document.getElementById('vm-val');
+    const imVal = document.getElementById('im-val');
+    const fVal = document.getElementById('f-val');
+    const phaseVal = document.getElementById('phase-val');
+    
+    const waveV = document.getElementById('wave-v');
+    const waveI = document.getElementById('wave-i');
+    const waveXY = document.getElementById('wave-xy');
+    
+    const runBtn = document.getElementById('run-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const xyBtn = document.getElementById('xy-btn');
+    const scopeScreen = document.getElementById('scope-screen');
+    const scopeGridBg = document.getElementById('scope-grid-bg');
+    
+    const ytAxes = document.getElementById('yt-axes');
+    const ytTicks = document.getElementById('yt-ticks');
+    
+    const cursorHover = document.getElementById('measure-cursor-hover');
+    const cursorPinned = document.getElementById('measure-cursor-pinned');
+    const measureTooltip = document.getElementById('measure-tooltip');
+    
+    const osdStatus = document.getElementById('osd-status');
+    const osdTime = document.getElementById('osd-time');
+    
+    const phasorV = document.getElementById('phasor-v');
+    const phasorI = document.getElementById('phasor-i');
+    const phasorArc = document.getElementById('phasor-arc');
+    const labelV = document.getElementById('label-v');
+    const labelI = document.getElementById('label-i');
+    const phasorAngleVal = document.getElementById('phasor-angle-val');
+    
+    const eqW = document.getElementById('eq-w');
+    const eqV = document.getElementById('eq-v');
+    const eqI = document.getElementById('eq-i');
+    const eqP = document.getElementById('eq-p');
+    const eqQ = document.getElementById('eq-q');
+    const eqS = document.getElementById('eq-s');
+    const eqT = document.getElementById('eq-t');
+    
+    const feedbackOut = document.getElementById('feedback-output');
+
+    let time = 0;
+    let dragOffset = 0; 
+    let isRunning = true;
+    let isXYMode = false;
+    
+    let isDragging = false;
+    let startMouseX = 0;
+    let hasDragged = false;
+    let isPinned = false;
+    let pinnedXPos = 0;
+
+    // Toggles
+    runBtn.addEventListener('click', () => {
+        isRunning = !isRunning;
+        if(isRunning) {
+            runBtn.innerHTML = "⏸ PAUSE";
+            runBtn.className = "btn btn-run";
+            osdStatus.innerHTML = "▶ RUNNING";
+            osdStatus.style.color = "#10b981";
+            cursorHover.style.display = "none";
+            if(!isPinned) measureTooltip.style.display = "none";
+        } else {
+            runBtn.innerHTML = "▶ RESUME";
+            runBtn.className = "btn btn-stop";
+            osdStatus.innerHTML = "⏸ STOPPED";
+            osdStatus.style.color = "#ef4444";
+        }
+    });
+
+    resetBtn.addEventListener('click', () => { dragOffset = 0; time = 0; if(!isRunning) updateScope(); });
+
+    clearBtn.addEventListener('click', () => {
+        isPinned = false; cursorPinned.style.display = "none"; 
+        measureTooltip.style.display = "none"; clearBtn.style.display = "none";
+    });
+
+    xyBtn.addEventListener('click', () => {
+        isXYMode = !isXYMode;
+        if(isXYMode) {
+            xyBtn.innerHTML = "∿ Y-T Mode";
+            waveV.style.display = "none";
+            waveI.style.display = "none";
+            waveXY.style.display = "block";
+            ytAxes.style.display = "none";
+            ytTicks.style.display = "none";
+            osdTime.innerText = "Mode: X-Y (Lissajous)";
+            scopeGridBg.style.backgroundPosition = "center center"; // Center grid for XY
+        } else {
+            xyBtn.innerHTML = "⏚ X-Y Mode";
+            waveV.style.display = "block";
+            waveI.style.display = "block";
+            waveXY.style.display = "none";
+            ytAxes.style.display = "block";
+            ytTicks.style.display = "block";
+            scopeGridBg.style.backgroundPosition = "left center";
+        }
+        if(!isRunning) updateScope();
+    });
+
+    // Mouse events
+    scopeScreen.addEventListener('mousedown', (e) => {
+        if (!isRunning && !isXYMode) { isDragging = true; hasDragged = false; startMouseX = e.clientX; }
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    scopeScreen.addEventListener('mousemove', (e) => {
+        if(isXYMode) return;
+        const rect = scopeScreen.getBoundingClientRect();
+        const xPos = e.clientX - rect.left;
+        
+        if (isDragging && !isRunning) {
+            const dx = e.clientX - startMouseX;
+            if(Math.abs(dx) > 2) hasDragged = true; 
+            dragOffset -= dx * 0.005; 
+            startMouseX = e.clientX;
+            updateScope(); 
+        }
+        
+        if (!isRunning && !isDragging && !isPinned) {
+            cursorHover.style.display = "block";
+            cursorHover.style.left = `${xPos}px`;
+            updateTooltipMath(xPos, e.clientY - rect.top);
+        }
+    });
+
+    scopeScreen.addEventListener('mouseleave', () => {
+        isDragging = false;
+        cursorHover.style.display = "none";
+        if(!isPinned) measureTooltip.style.display = "none";
+    });
+
+    scopeScreen.addEventListener('click', (e) => {
+        if(!isRunning && !hasDragged && !isXYMode) {
+            const rect = scopeScreen.getBoundingClientRect();
+            pinnedXPos = e.clientX - rect.left;
+            isPinned = true;
+            cursorHover.style.display = "none";
+            cursorPinned.style.display = "block";
+            cursorPinned.style.left = `${pinnedXPos}px`;
+            clearBtn.style.display = "flex";
+            updateTooltipMath(pinnedXPos, e.clientY - rect.top);
+        }
+    });
+
+    function updateTooltipMath(xPos, yPos) {
+        measureTooltip.style.display = "block";
+        measureTooltip.style.left = `${xPos}px`;
+        if(yPos) measureTooltip.style.top = `${yPos}px`;
+        
+        const Vm = parseFloat(vmSlider.value);
+        const Im = parseFloat(imSlider.value);
+        const freq = parseFloat(fSlider.value);
+        const phaseRad = parseFloat(phaseSlider.value) * (Math.PI / 180);
+        
+        const wVisual = (freq / 50) * 0.02;
+        const width = 800; 
+        const evalX = xPos * (width / scopeScreen.getBoundingClientRect().width);
+        
+        const currentAngle = (wVisual * evalX) - (time + dragOffset);
+        const instV = Vm * Math.sin(currentAngle);
+        const instI = Im * Math.sin(currentAngle + phaseRad);
+        const timeAtCursor = (evalX * (40 / width)).toFixed(2); 
+
+        measureTooltip.innerHTML = `
+            <div style="text-align:center; border-bottom:1px solid #334155; margin-bottom:5px; padding-bottom:3px; color:#94a3b8;">Probe Data</div>
+            Time (t) = ${timeAtCursor} ms<br>
+            <span style="color:#06b6d4; font-weight:bold">v(t) = ${instV.toFixed(1)} V</span><br>
+            <span style="color:#f59e0b; font-weight:bold">i(t) = ${instI.toFixed(1)} A</span>
+        `;
+    }
+
+    function updateScope() {
+        const Vm = parseFloat(vmSlider.value);
+        const Im = parseFloat(imSlider.value);
+        const freq = parseFloat(fSlider.value);
+        const phaseDeg = parseFloat(phaseSlider.value);
+        const phaseRad = phaseDeg * (Math.PI / 180);
+        const omega = (2 * Math.PI * freq).toFixed(1);
+        const T = (1000 / freq).toFixed(1);
+        
+        vmVal.innerText = Vm + " V";
+        imVal.innerText = Im + " A";
+        fVal.innerText = freq + " Hz";
+        phaseVal.innerText = phaseDeg + "°";
+
+        const width = 800;
+        const centerY = 225; // Adjusted for taller SVG height (450/2)
+        const points = 400; 
+        
+        if(!isXYMode) {
+            const timePerDiv = (2.5 * (50 / freq)).toFixed(1);
+            osdTime.innerText = `Time: ${timePerDiv} ms/div`;
+        }
+
+        const wVisual = (freq / 50) * 0.02; 
+        const totalTime = time + dragOffset;
+
+        let pathV = "";
+        let pathI = "";
+        let pathXY = "";
+
+        for (let i = 0; i <= points; i++) {
+            const x = (i / points) * width;
+            const currentAngle = wVisual * x - totalTime;
+            
+            const vY = centerY - Vm * Math.sin(currentAngle);
+            const iY = centerY - Im * Math.sin(currentAngle + phaseRad);
+            
+            if (i === 0) {
+                pathV += `M ${x},${vY} `;
+                pathI += `M ${x},${iY} `;
+            } else {
+                pathV += `L ${x},${vY} `;
+                pathI += `L ${x},${iY} `;
+            }
+
+            if(isXYMode) {
+                // Lissajous: X = V, Y = I
+                const lX = 400 + Vm * Math.sin(currentAngle);
+                const lY = 225 - Im * Math.sin(currentAngle + phaseRad);
+                if (i === 0) pathXY += `M ${lX},${lY} `;
+                else pathXY += `L ${lX},${lY} `;
+            }
+        }
+        
+        if(isXYMode) {
+            waveXY.setAttribute('d', pathXY);
+        } else {
+            waveV.setAttribute('d', pathV);
+            waveI.setAttribute('d', pathI);
+        }
+
+        // Phasor Diagram Update
+        const vLen = (Vm / 140) * 110;
+        const iLen = (Im / 140) * 110;
+        
+        const pAngleV = -totalTime; 
+        const pAngleI = -totalTime - phaseRad; // Inverted for standard representation
+
+        const vx = vLen * Math.cos(pAngleV);
+        const vy = vLen * Math.sin(pAngleV);
+        const ix = iLen * Math.cos(pAngleI);
+        const iy = iLen * Math.sin(pAngleI);
+
+        phasorV.setAttribute('x2', vx);
+        phasorV.setAttribute('y2', vy);
+        phasorI.setAttribute('x2', ix);
+        phasorI.setAttribute('y2', iy);
+
+        labelV.setAttribute('x', vx * 1.15 - 5);
+        labelV.setAttribute('y', vy * 1.15 + 5);
+        labelI.setAttribute('x', ix * 1.15 - 5);
+        labelI.setAttribute('y', iy * 1.15 + 5);
+
+        // Draw Arc and Angle Text
+        if(Math.abs(phaseDeg) > 5) {
+            const arcR = 40;
+            const ax1 = arcR * Math.cos(pAngleV);
+            const ay1 = arcR * Math.sin(pAngleV);
+            const ax2 = arcR * Math.cos(pAngleI);
+            const ay2 = arcR * Math.sin(pAngleI);
+            
+            // Sweep flag calculation
+            let sweep = phaseDeg > 0 ? 0 : 1;
+            
+            phasorArc.setAttribute('d', `M ${ax1} ${ay1} A ${arcR} ${arcR} 0 0 ${sweep} ${ax2} ${ay2}`);
+            
+            // Text placement
+            const midAngle = pAngleV - (phaseRad / 2);
+            const tx = (arcR + 15) * Math.cos(midAngle);
+            const ty = (arcR + 15) * Math.sin(midAngle);
+            phasorAngleVal.setAttribute('x', tx);
+            phasorAngleVal.setAttribute('y', ty);
+            phasorAngleVal.textContent = Math.abs(phaseDeg) + "°";
+        } else {
+            phasorArc.setAttribute('d', "");
+            phasorAngleVal.textContent = "";
+        }
+
+        // Math Equations Update
+        const Vrms = (Vm / Math.sqrt(2));
+        const Irms = (Im / Math.sqrt(2));
+        const pf = Math.cos(phaseRad).toFixed(3);
+        const phaseAbs = Math.abs(phaseDeg);
+        
+        const activePower = (Vrms * Irms * pf).toFixed(1);
+        const reactivePower = (Vrms * Irms * Math.sin(phaseRad)).toFixed(1);
+        const apparentPower = (Vrms * Irms).toFixed(1);
+
+        eqT.innerText = `T = ${T}ms`;
+        eqW.innerText = `ω = 2πf = ${omega} rad/s`;
+        eqV.innerText = `v(t) = ${Vm} sin(${omega}t) V`;
+        const sign = phaseDeg >= 0 ? "+" : "-";
+        eqI.innerText = `i(t) = ${Im} sin(${omega}t ${phaseDeg === 0 ? '' : sign + ' ' + phaseAbs + '°'}) A`;
+        
+        eqP.innerHTML = `Active   (P) = VI cosθ = <strong>${activePower} W</strong>`;
+        eqQ.innerHTML = `Reactive (Q) = VI sinθ = <strong>${reactivePower} VAR</strong>`;
+        eqS.innerHTML = `Apparent (S) = VI      = <strong>${apparentPower} VA</strong>`;
+
+        if (phaseDeg === 0) {
+            feedbackOut.className = "feedback-box feedback-resistive";
+            feedbackOut.innerHTML = `✅ <strong>Purely Resistive Circuit:</strong> ভোল্টেজ এবং কারেন্ট একই ফেজে আছে। (Power Factor = 1.00)`;
+        } else if (phaseDeg < 0) {
+            feedbackOut.className = "feedback-box feedback-inductive";
+            feedbackOut.innerHTML = `⚠️ <strong>Inductive Circuit:</strong> কারেন্ট ভোল্টেজের চেয়ে <strong>${phaseAbs} ডিগ্রি ল্যাগিং (Lagging)</strong> অবস্থায় আছে। (Cosθ = ${pf})`;
+        } else {
+            feedbackOut.className = "feedback-box feedback-capacitive";
+            feedbackOut.innerHTML = `⚡ <strong>Capacitive Circuit:</strong> কারেন্ট ভোল্টেজের চেয়ে <strong>${phaseAbs} ডিগ্রি লিডিং (Leading)</strong> অবস্থায় আছে। (Cosθ = ${pf})`;
+        }
+
+        if(isPinned) updateTooltipMath(pinnedXPos, null);
+    }
+
+    function animate() {
+        if(isRunning) time += 0.04; 
+        updateScope();
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+</script>
+</body>
+</html>
